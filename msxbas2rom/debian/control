@@ -1,0 +1,12 @@
+Source: msxbas2rom
+Maintainer: Amaury Carvalho <amauryspires@gmail.com>
+Section: utils
+Priority: optional
+Standards-Version: 4.6.2
+Build-Depends: debhelper-compat (= 11)
+Homepage: https://github.com/amaurycarvalho/msxbas2rom
+
+Package: msxbas2rom
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends},
+Description: MSX BASIC to ROM compiler

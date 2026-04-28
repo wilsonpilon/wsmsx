@@ -1,5 +1,7 @@
 # WS7 Editor
 
+![WS7 screenshot](images/wsmsx-00.png)
+
 Text editor in Go + Fyne, inspired by the WordStar 7.0 workflow, focused on MSX-BASIC development.
 
 ## Motivation and Inspiration
@@ -24,14 +26,14 @@ Text editor in Go + Fyne, inspired by the WordStar 7.0 workflow, focused on MSX-
 
 ## Recent Changes
 
-- Tabbed editor (`DocTabs`) for multiple documents.
-- Strong visual dirty-tab indicator (`*` + warning icon).
-- Duplicate open prevention for the same file (focuses existing tab).
-- Tab close confirmation when unsaved changes exist.
-- Updated shortcut map:
-  - `Ctrl+N` opens a new tab (`untitled`).
-  - `Ctrl+W` closes the current tab.
-  - `Ctrl+D` moves the cursor right again.
+- Version build metadata is now centralized in `internal/version/version.go` (`0.1.0`).
+- Application title and Status dialog show the running version.
+- Opening Menu now includes:
+  - `Utilities > Macros` (`MP`, `MR`, `MD`, `MS`, `MO`, `MY`, `ME`).
+  - `Additional` tools (`AC`, `AH`, `AS`, `AG`, `AN`).
+  - Rightmost `Help` menu (`HR`, `HM`, `HO`) rendering `README.md`, `MANUAL.md`, and `OUTLINE.md` as Markdown.
+- Line-number gutter refresh was fixed (`internal/ui/linenumbers.go`) so full numbering updates correctly while scrolling/editing.
+- Core editor behavior remains in place: tabs (`DocTabs`), dirty-tab indicator (`*`), duplicate-open focus, and unsaved-close confirmation.
 
 ## Main Structure
 
@@ -40,9 +42,12 @@ cmd/ws7/main.go                  application entry point
 internal/ui/editor.go            global state, screens, menus, and tabs
 internal/ui/filebrowser.go       file navigation (Opening Menu)
 internal/ui/theme.go             Source Code Pro theme
+internal/ui/linenumbers.go       line-number gutter widget/renderer
 internal/input/commands.go       Ctrl/WordStar command resolver
 internal/store/sqlite/store.go   SQLite (settings, projects, recent_files)
 internal/config/paths.go         local data paths
+internal/version/version.go      app name/version constants
+CHANGELOG.md                     release notes + Unreleased workflow
 res/                             TTF fonts and wordstar7.pdf manual
 build.ps1                        Windows build
 ```
@@ -50,6 +55,14 @@ build.ps1                        Windows build
 ## Usage Documentation
 
 - Full operational guide: `MANUAL.md`
+- Project continuity and migration state: `OUTLINE.md`
+- Release notes and current pending changes: `CHANGELOG.md`
+
+## Versioning and Releases
+
+- Current app version starts at `0.1.0`.
+- Bump version in `internal/version/version.go` before each release.
+- Register new work under `## [Unreleased]` in `CHANGELOG.md`, then cut a dated version section.
 
 ## Quick Run
 

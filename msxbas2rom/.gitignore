@@ -1,0 +1,52 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Backups
+*.bak
+
+# Binaries and objects
+bin/
+obj/
+
+# Testing objects
+test/**/*.rom
+test/**/*.noi
+test/**/*.omds
+test/**/*.symbol
+test/unit/bin/
+test/unit/obj/
+test/unit/tmp/
+
+# Deploys
+dist/
+

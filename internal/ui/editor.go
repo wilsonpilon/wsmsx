@@ -24,6 +24,7 @@ import (
 	"ws7/internal/config"
 	"ws7/internal/input"
 	"ws7/internal/store/sqlite"
+	"ws7/internal/version"
 )
 
 var errSaveCanceled = errors.New("save canceled")
@@ -105,7 +106,7 @@ func Run() error {
 
 	ui := &editorUI{
 		fyneApp:  a,
-		window:   a.NewWindow("WS7 Editor"),
+		window:   a.NewWindow(version.Full() + " - Editor"),
 		resolver: input.NewResolver(),
 		store:    store,
 		tabState: map[*container.TabItem]*editorTab{},
@@ -372,7 +373,7 @@ func (e *editorUI) showBrowser() {
 	e.inEditor = false
 	e.resetPrefixState()
 	e.window.SetMainMenu(e.makeOpeningMenu())
-	e.window.SetTitle("WS7 Editor - Opening Menu")
+	e.window.SetTitle(version.Full() + " - Opening Menu")
 	e.window.SetContent(e.browser.Content)
 	e.window.Canvas().Focus(e.browser.list)
 }
@@ -977,15 +978,35 @@ func (e *editorUI) makeEditorFileMenu() *fyne.Menu {
 
 func (e *editorUI) makeOpeningMenu() *fyne.MainMenu {
 	fileMenu := e.makeOpeningFileMenu()
-	utilitiesMenu := fyne.NewMenu("Utilities",
-		fyne.NewMenuItem("(none)", nil),
+	macrosItem := fyne.NewMenuItem("Macros", nil)
+	macrosItem.ChildMenu = fyne.NewMenu("",
+		fyne.NewMenuItem("Play...                    MP", func() { e.cmdNotImplemented("Macro Play") }),
+		fyne.NewMenuItem("Record...                  MR", func() { e.cmdNotImplemented("Macro Record") }),
+		fyne.NewMenuItem("Edit/Create...             MD", func() { e.cmdNotImplemented("Macro Edit/Create") }),
+		fyne.NewMenuItem("Single Step...             MS", func() { e.cmdNotImplemented("Macro Single Step") }),
+		fyne.NewMenuItem("Copy...                    MO", func() { e.cmdNotImplemented("Macro Copy") }),
+		fyne.NewMenuItem("Delete...                  MY", func() { e.cmdNotImplemented("Macro Delete") }),
+		fyne.NewMenuItem("Rename...                  ME", func() { e.cmdNotImplemented("Macro Rename") }),
 	)
+
+	utilitiesMenu := fyne.NewMenu("Utilities", macrosItem)
 
 	additionalMenu := fyne.NewMenu("Additional",
-		fyne.NewMenuItem("(none)", nil),
+		fyne.NewMenuItem("Character Editor...        AC", func() { e.cmdNotImplemented("Character Editor") }),
+		fyne.NewMenuItem("Hexa Editor...             AH", func() { e.cmdNotImplemented("Hexa Editor") }),
+		fyne.NewMenuItem("Sprite Editor...           AS", func() { e.cmdNotImplemented("Sprite Editor") }),
+		fyne.NewMenuItem("Graphos...                 AG", func() { e.cmdNotImplemented("Graphos") }),
+		fyne.NewMenuItem("Noise Editor...            AN", func() { e.cmdNotImplemented("Noise Editor") }),
 	)
 
-	return fyne.NewMainMenu(fileMenu, utilitiesMenu, additionalMenu)
+	helpMenu := fyne.NewMenu("Help",
+		fyne.NewMenuItem("README                    HR", func() { e.cmdOpenHelpReadme() }),
+		fyne.NewMenuItem("MANUAL                    HM", func() { e.cmdOpenHelpManual() }),
+		fyne.NewMenuItem("OUTLINE                   HO", func() { e.cmdOpenHelpOutline() }),
+	)
+
+	// Keep Help as the last top-level menu so it stays rightmost.
+	return fyne.NewMainMenu(fileMenu, utilitiesMenu, additionalMenu, helpMenu)
 }
 
 func (e *editorUI) makeEditorMenu() *fyne.MainMenu {
@@ -1141,6 +1162,69 @@ func (e *editorUI) cmdOpenNondocument() {
 	e.cmdOpenDocument()
 }
 
+func (e *editorUI) cmdOpenHelpReadme() {
+	e.openMarkdownHelpDoc("README.md", "README")
+}
+
+func (e *editorUI) cmdOpenHelpManual() {
+	e.openMarkdownHelpDoc("MANUAL.md", "MANUAL")
+}
+
+func (e *editorUI) cmdOpenHelpOutline() {
+	e.openMarkdownHelpDoc("OUTLINE.md", "OUTLINE")
+}
+
+func (e *editorUI) openMarkdownHelpDoc(fileName, label string) {
+	path, err := findProjectDocPath(fileName)
+	if err != nil {
+		dialog.ShowError(err, e.window)
+		return
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		dialog.ShowError(err, e.window)
+		return
+	}
+
+	md := widget.NewRichTextFromMarkdown(string(data))
+	md.Wrapping = fyne.TextWrapWord
+	scroll := container.NewVScroll(md)
+
+	viewer := e.fyneApp.NewWindow(fmt.Sprintf("%s - %s", version.Full(), label))
+	viewer.Resize(fyne.NewSize(920, 680))
+	viewer.SetContent(container.NewBorder(
+		widget.NewLabel(filepath.Base(path)),
+		nil,
+		nil,
+		nil,
+		scroll,
+	))
+	viewer.Show()
+}
+
+func findProjectDocPath(fileName string) (string, error) {
+	if fileName == "" {
+		return "", fmt.Errorf("empty document file name")
+	}
+
+	if cwd, err := os.Getwd(); err == nil {
+		candidate := filepath.Join(cwd, fileName)
+		if _, statErr := os.Stat(candidate); statErr == nil {
+			return candidate, nil
+		}
+	}
+
+	if exe, err := os.Executable(); err == nil {
+		candidate := filepath.Join(filepath.Dir(exe), fileName)
+		if _, statErr := os.Stat(candidate); statErr == nil {
+			return candidate, nil
+		}
+	}
+
+	return "", fmt.Errorf("help document not found: %s", fileName)
+}
+
 func (e *editorUI) cmdNotImplemented(name string) {
 	dialog.ShowInformation(name, name+" will be implemented in a future update.", e.window)
 }
@@ -1235,7 +1319,7 @@ func (e *editorUI) cmdStatus() {
 	if e.filePath != "" {
 		name = e.filePath
 	}
-	msg := fmt.Sprintf("Mode: %s\nFile: %s\nModified: %t", mode, name, e.dirty)
+	msg := fmt.Sprintf("Version: %s\nMode: %s\nFile: %s\nModified: %t", version.Full(), mode, name, e.dirty)
 	dialog.ShowInformation("Status", msg, e.window)
 }
 
@@ -1513,7 +1597,7 @@ func (e *editorUI) updateTitle() {
 		e.activeTab.dirty = e.dirty
 		e.refreshTabTitle(e.activeTab)
 	}
-	e.window.SetTitle(fmt.Sprintf("WS7 Editor - %s%s", name, dirty))
+	e.window.SetTitle(fmt.Sprintf("%s - %s%s", version.Full(), name, dirty))
 }
 
 func (e *editorUI) updateCursorStatus() {

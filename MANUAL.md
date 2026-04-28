@@ -32,6 +32,17 @@ Top menu items on the startup screen:
 - `File`
 - `Utilities`
 - `Additional`
+- `Help`
+
+Startup menu details (current):
+
+- `Utilities > Macros`
+  - `Play... MP`, `Record... MR`, `Edit/Create... MD`, `Single Step... MS`, `Copy... MO`, `Delete... MY`, `Rename... ME`
+- `Additional`
+  - `Character Editor... AC`, `Hexa Editor... AH`, `Sprite Editor... AS`, `Graphos... AG`, `Noise Editor... AN`
+- `Help`
+  - `README HR`, `MANUAL HM`, `OUTLINE HO`
+  - These entries open project documents rendered as Markdown.
 
 ## 3) Open a File
 

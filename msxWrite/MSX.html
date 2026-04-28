@@ -1,0 +1,3785 @@
+RuMSX
+
+
+This help should finally contain all informations necessary to develop MSX-Basic, MSX-DOS and Assembly-language programs (Z80, R800) for any possible MSX-platform. If some relevant information is missing or incorrect please mail me: support@lexlechz.at (http://www.lexlechz.at) Please check the following topics:
+
+Resizing the RuMSX window
+
+If RuMSX fails to start check the section Trouble-shooting for informations about how to locate and solve the problem.
+
+Interesting informations can be found in the sections Frequently Asked Questions and Known Problems.
+
+Different MSX-computers may have a different Memory layout
+
+MSX-Basic
+
+MSX-DOS
+
+Screen-modes
+
+BIOS-documentation
+
+Reserved devicenames
+
+Fix compatibility problems using Boot-keys
+
+RuMSX keyboard
+
+Supported Devices
+
+Toolbar and Statusbar
+
+Performance-Tuning
+
+"My MSX" folder
+
+To take full advantage of all features you need to have installed DirectX on your system. A Pentium 166 is recommended to run RuMSX.
+
+
+
+This Emulator is FreeWare!
+
+
+
+* * *
+
+
+
+'MSX' is a trademark owned by MSX Licensing Corporation (http://www.msxlc.com/)
+
+[earlier it was owned by the MSX Association (http://msxa.fcm.co.jp/)]
+
+Disclaimer:
+
+The correct functionality of the software is not guaranteed by MSX Association nor Microsoft. Both parties do not accept any responsibility concerning the results of using this software. Please use this software at your own risk.
+
+
+
+
+
+Control Panel
+
+
+The Control Panel is displayed whenever a device with very specific extensions is used. It automatically disappears if the last specific device (ROM cartridge) is removed.
+
+Only available elements can be controlled. Other extensions are disabled.
+
+Chakkari Copy
+
+The Chakkari Copy ROM is inserted. If more than one ROM of this type is inserted only the 1st one can be controlled with these buttons.
+
+If Chakkari Copy is used with other cartridges Chakkari Copy must the placed in Slot 1 and the other cartridge in Slot 2.
+
+The cartridge can create printed hardcopies of any MSX1 program by pressing PAUSE (to freeze the running program) and then COPY (to print the screen contents).
+
+Controls:
+
+Element Type Function
+
+COPY LED Indicates that COPY operation is in progress.
+
+COPY Button Create a printed hardcopy of the current MSX1 screen-contents. The execution must be PAUSE'd first.
+
+PAUSE LED Indicates that the program is paused. Press COPY to print a hardcopy or PAUSE to resume.
+
+PAUSE Button Stop/resume execution of MSX programs.
+
+COPY <-> RAM Toggle-Switch Not implemented in RuMSX: the original cartridge has a switch that toggles between COPY and RAM mode. When the toggle switch is set to RAM the cartridge can be used as 16KB extension RAM. 	 But while in RAM mode the PAUSE and COPY buttons do not work. However in RAM mode 	 CALL PAUSE and 	 CALL BPRINT can still be used as replacement.
+
+	 RuMSX implements the COPY mode only.
+
+Note: Chakkari Copy only prints contents of MSX1 modes (screen 0/40, 1, 2 and 3). Other modes are not supported and will give unpredictable results.
+
+
+
+* * *
+
+
+
+
+
+Cartridge: Chakkari Copy
+
+
+
+Photo: Enrico Barbisan
+
+
+
+
+
+Frequently asked questions
+
+
+
+
+
+What can I do with RuMSX?
+
+RuMSX is too slow. Why? What can I do?
+
+How to use diskettes?
+
+How to use tapes?
+
+How to use ROM's?
+
+My program starts with AUTOEXEC.BAT, SOMEGAME.LDR or another loader. How can I execute this program on RuMSX?
+
+How to use HardDisks and CD-ROMs?
+
+
+
+
+
+Known problems
+
+
+The current version of RuMSX has following known problems (and possible work-arounds): MSX-Emulator
+
+Taskbar/Window/FullScreen
+
+Keyboard layout
+
+DirectX
+
+Interface-ROM to the host operating-system
+
+
+
+MSX-Software (specific)
+
+HolyQuran
+
+Nemesis 1
+
+Some disk-based programs lockup during load & start
+
+Ranma 1/2 (does not run)
+
+ROM-mapper incompatibility
+
+
+
+MSX-Software (general)
+
+SET TIME and SET DATE are not applied
+
+SCSI
+
+
+
+
+
+Trouble-shooting
+
+
+
+
+If RuMSX fails to start (because of instability) try start it using the /SOS argument. This allows you to find out what components are the reason for this problem. To display the trouble-shooter dialog start RuMSX in the following way:
+
+MSX /SOS
+
+Available options are:
+
+Show DebugWindow / Debug... Shows the DebugWindow on initial startup and/or enables to set RuMSX debugging options. This option enables debugging of MSX code that is executed on startup.
+
+No Direct-Draw
+
+Prevents the use of DirectDraw. This option may be useful to verify if RuMSX problems are caused by a defective video-driver. If the found problem disappears with disabled DirectDraw the used video-driver should be updated!
+
+Note: FullScreen display requires DirectDraw therefore it is disabled as long as RuMSX is started in this mode.
+
+No Direct-Input
+
+Prevents the use of DirectInput. This option may be useful to verify if RuMSX problems are caused by a defective input-device driver (such as Joystick or Mouse). If the found problem disappears with disabled DirectInput the used driver should be updated!
+
+No Direct-Sound
+
+Prevents the use of DirectSound. This option may be useful to verify if RuMSX problems are caused by a defective sound-driver. If the found problem disappears with disabled DirectSound the used sound-driver should be updated!
+
+Note: if this option is disabled the current version of RuMSX does not use DirectSound.
+
+No Wave-Audio output
+
+Prevents the use of Wave-Audio output. This option may be useful to verify if RuMSX problems are caused by a defective sound-driver. If the found problem disappears with disabled Wave-Audio output the used sound-driver should be updated!
+
+Note: if this option is disabled the current version of RuMSX does not use Wave-Audio output.
+
+No Wave-Input
+
+Prevents the use of Wave-Audio input. This option may be useful to verify if RuMSX problems are caused by a defective sound-driver. If the found problem disappears with disabled Wave-Audio input the used sound-driver should be updated!
+
+Note: if this option is disabled the current version of RuMSX does not use Wave-Audio input.
+
+No Midi-Music output
+
+Prevents the use of MIDI output devices. This option may be useful to verify if RuMSX problems are caused by a defective sound-driver. If the found problem disappears with disabled MIDI output the used sound-driver should be updated!
+
+Ignore default device assignment
+
+Prevents the initial use of additional Windows devices (such as Joystick, Mouse, Printer, ...) by RuMSX. This enables re-assignment of failing devices. In case of problems the failing device should be changed to "No assignment" and used as new default-setting.
+
+Choose a new configuration before startup with default
+
+Does not use the last valid RuMSX configuration and prompts for manual selection of a new one. This option helps to pick a new configuration in case the last saved one prevents RuMSX from starting.
+
+
+
+See also:
+
+Command-line arguments
+
+Known Problems: DirectX
+
+DirectX
+
+
+
+
+
+FFE0 ED FE DB $ED, $FE
+
+FFE2 C9 RET
+
+To avoid unwanted side-effects interrupts must be disabled while calling this interface (e.g. when an interrupt-routine tries to modify these 3 bytes while executed). The executed Host Interface function is specified in register A.
+
+If the function is supported the call returns with Carry=0. Therefore it’s required to perform a SCF operation before the function is executed. In some cases an operation may be supported, but fail because of invalid parameters. In this case of a parameter error the Z flag is 0 (=NZ). Characters in transferred Strings are MSX characters (ASCII style). Strings end at their maximum length or are $00 terminated.
+
+HL = Settings
+
+DE = Flags to consider Function Parameter Return Operation Since specification
+
+$00 Test A = $00 HL = Interface version Queries the interface version, which is implemented in the host-system. Returns:
+
+Carry = 0 if HostInterface is supported, Carry = 1 (unchanged after SCF) if HostInterface is unsupported
+
+H = Interface Major version
+
+L = Interface Minor version
+
+
+
+Initial Version is 1.0 on RuMSX v0.80, but implementations depend on the host-system. There is no guarantee that a specific interface-version implements a defined set of functions. So every single function has to be checked separately.
+
+
+
+History for RuMSX:
+
+Interface Version 1.0 is available on RuMSX v0.80
+
+Interface Version 1.1 is available on RuMSX v0.82 1.0
+
+$01 GetVersion A = $01
+
+HL = Address of 48 Byte buffer for Version Data Filled buffer Returns the MSX emulator name and version:
+
+16 Bytes emulation name, e.g. "RuMSX";
+
+16 Bytes emulation version as display-String, e.g. "0.80";
+
+4*2 Bytes version number (major, minor, micro, build). This are 16 bit integers in order Hi/Lo.
+
+
+
+Carry = 0 if function is supported & succeeded 1.0
+
+$02 GetSettings A = $02
+
+B = SettingsIndex HL = Current Settings (subset of supported flags)
+
+DE = Supported flags Retrieve host settings (flags) for the specified SettingsIndex from the MSX emulation.
+
+
+
+Index=0, Bit0=1 Host-Keyboard input is enabled (e.g. Windows keyboard input can be retrieved)
+
+
+
+Carry = 0 if function is supported & succeeded.
+
+NZ if A was not 0
+
+
+
+The SettingsIndex starts with 0, higher values may cause this function to fail (if index is not supported). 1.0
+
+$03 SetSettings A = $03
+
+B = SettingsIndex DE = Applied flags Update host settings (flags) from the MSX emulation. Only bits as specified in DE are updated. Unsupported flags are ignored and removed from DE.
+
+
+
+Index=0, Bit0=1 Host-Keyboard enable (e.g. Windows keyboard input can be retrieved)
+
+
+
+Carry = 0 if function is supported & succeeded.
+
+NZ if A was not 0
+
+
+
+The SettingsIndex starts with 0, higher values may cause this function to fail (if index is not supported). 1.0
+
+
+
+$04 ResetCharInput A = $04 - Resets the host keyboard-buffer for the MSX.
+
+This can be used to avoid accidental fetching of old input. 1.0
+
+$05 GetCharInput A = $05
+
+HL = Address of buffer for keyboard characters,
+
+B = Fetch flags
+
+C = Buffer size (0-255) - Get keyboard input from host-system (ignores MSX keyboard layout of the selected computer).
+
+C = Buffer Size: 0 do not get keys and return the size of available input only, 1-255 get the number of keys from the host
+
+B = Fetch flags
+
+Bit0=1 Keyboard characters without specific function (MSX keyboard row 0-5 and 9-10)
+
+Bit1=1 Specific characters that produce an input (Esc, Tab, Back, Select, Enter, Space)
+
+Bit2=1 Specific characters that are used for navigation (Home, Insert, Delete, Left, Up, Down, Right)
+
+Bit3=1 Remaining Ctrl-key combinations that generate control characters
+
+(usually all 4 bits are set simultaneously)
+
+A = number of characters (0-255)
+
+
+
+Carry = 0 if function is supported & succeeded. 1.0
+
+$06 GetToggleKeys A = $06
+
+B = Keys of interest B = Pressed keys Queries toggled keys. Only keys of interest are retrieved.
+
+Register B is used for input and output:
+
+Bit0 = CAPS
+
+Bit1 = KANA or HANGUL
+
+(Bit=1 if interested, Bit=1 if key is toggled on)
+
+
+
+Note: there is no error-indicator for this function. Failure can only be noticed by missing toggle-input. 1.0
+
+$07 GetVdpUptime A = $07
+
+HL = address of buffer for 2 integers (4 bytes total) Filled buffer (see HL) Get MSX VDP uptime, based on the main VDP. The uptime is measured by the number of completed frames (at 60Hz or 50Hz). Note: because each timer is implemented as 16bit integer it overflows after approx. 20 minutes (depending on the VDP frequency: 60 Hz or 50 Hz).
+
+Used buffer stores 2 unsigned integers (4 bytes total)
+
++0 number of 60 Hz frames LO
+
++1 number of 60 Hz frames HI
+
++2 number of 50 Hz frames LO
+
++3 number of 50 Hz frames HI
+
+
+
+Carry = 0 if function is supported & succeeded. 1.1
+
+$08 GetCpuUptime A = $08
+
+HL = address of buffer for 10 BCD digits (5 bytes total) Filled buffer (see HL) Get MSX CPU uptime, based on all exclusive used CPUs. The uptime is measured as ticks of the 255682 Hz timer, as available in the MSX Turbo R. In contrast to the Turbo R timer it cannot be reset.
+
++0 digits 8+9 of the BCD number
+
++1 digits 6+7 of the BCD number
+
++2 digits 4+5 of the BCD number
+
++3 digits 2+3 of the BCD number
+
++4 digits 0+1 of the BCD number
+
+
+
+Carry = 0 if function is supported & succeeded. 1.1
+
+$09 Shutdown A = $09
+
+B = $00 (reserved) ? Immediately shuts down the MSX system. If an emulation is used the session is ended without prompt.
+
+
+
+Register B specifies the shut-down mode, which is currently not used and should therefore be 0. Unsupported values result in the default-behaviour, which ensures the best usability-effect.
+
+Carry = 0 if function is supported & succeeded.
+
+NOTE: if the function succeeds the call does not return. 1.1
+
+$0A GetBootMode A = $0A
+
+B = $00 (reserved) B = 2 bit boot-mode Determines the boot-mode (hardware-reset or software-reset) of the MSX-system. It also resets the flag (to software-reset). In this way a hardware-reset can only be detected once (respectively by caching within the MSX-HOST.ROM). See: CALL HOSTGETBOOTMODE
+
+
+
+Explicit calls of this function are only helpful, if the MSX-HOST.ROM is absent and the value must be queried explicitly.
+
+
+
+The boot-mode is similar to the Reset-Status flag (I/O-port $F4), but is available on MSX 1+2 computers also. In addition it is intended to detect real hardware-resets rather than preventing device conflicts.
+
+What kind of hardware resets? Those, who e.g. affect the CPU and VDP uptime (see corresponding functions GetVdpUptime and GetCpuUptime).
+
+
+
+The boot-mode is returned in register B:
+
+Bit 0 is set on hardware-reset (and automatically-reset in interface)
+
+Bit 1 is reserved for future use (but still indicating a hardware-reset)
+
+Bits 2-7 are always 0
+
+
+
+Carry = 0 if function is supported & succeeded. 1.1
+
+$FF Extended Command Reserved Reserved Reserved
+
+
+
+Carry = 1: not yet supported. ?
+
+
+
+
+
+Interface ROM:
+
+The Interface-ROM shows 16KB only and is located in page 1 (&H4000-&H7FFF) of any slot. MSX-emulations may consider using slot 0 to keep more free resource-pools available.
+
+Multiple instances of the cartrige can be loaded, but would not have any useful effect (except that they can refresh it's local state separately). Any side-effects can not be documented at this time.
+
+The Interface-ROM can be recognized by the presence of the characters "MSX-HOST" at memory-location &H4010, followed by the ROM major-version at &H4018 and the minor version at &H4019. 2 more bytes are reserved for later use and initially 0.
+
+To enable perfect interoperability (chaining hooks, ...) this ROM-type contains 256 Bytes of RAM at &H7F00-&H7FFF. The remaining memory (&H4000-&H7EFF) is ROM only.
+
+
+
+The MSX Host-Interface ROM 1.0 implements the following extensions:
+
+CALL HOSTKEY ON
+
+CALL HOSTKEY OFF
+
+Turns the MSX-Host keyboard on (default) and off. If turned on characters can be entered directly without need to consider the MSX keyboard-layout. The disadvantage is that software checking for key-presses may not recognize all keys. If there are problems with some programs the MSX-Host keyboard should be turned off.
+
+Technical note: The Host-Interface provides the entered characters (like A, B, C), and the status of the toggle-keys (like Caps or Kana/Hangul) where some key-states (like Ctrl+Shift) are directly processed as in other emulations. The MSX Host-Interface ROM contains all keyboard-driver code to merge the available input to a consistent behavior.
+
+
+
+Interaction:
+
+The MSX-Host ROM is not required for interaction between MSX-programs and a MSX-emulator. But it's a nice add-on, which provides quick and easy access to useful features (e.g. the correct keyboard layout). For better explanation here's a quick view of the possible interactions:
+
+
+
+
+
+Host-Interface (Basic)
+
+
+The MSX Host-Interface ROM supports the following operations:
+
+Since Interface 1.0, ROM 1.0: CALL HOSTKEY
+
+
+
+Since Interface 1.1, ROM 1.2: CALL HOSTUPTIME
+
+CALL HOSTSHUTDOWN
+
+CALL HOSTGETBOOTMODE
+
+
+
+
+
+If the MSX Host-Interface ROM is booted the Host-keyboard is enabled by default (=CALL HOSTKEY ON). To disable the Host-keyboard and use the original MSX keyboard-layout CALL HOSTKEY OFF must be executed.
+
+For MSX-emulations this ROM is available as: MSX-host.rom.
+
+
+
+See also:
+
+Host-Interface ROM
+
+
+
+
+
+CALL HOSTKEY
+
+
+(MSX Host-Interface ROM 1.0)
+
+Syntax:
+
+CALL HOSTKEY ON CALL HOSTKEY OFF
+
+
+
+Function:
+
+Turns the MSX-Host keyboard on (default) and off. If turned on characters can be entered directly without need to consider the MSX keyboard-layout. The disadvantage is that software checking for key-presses may not recognize all keys. If there are problems with some programs the MSX-Host keyboard should be turned off.
+
+Note: if the running MSX-host does not support the Host-Interface, or required functions are not implemented, the call fails with an "Illegal function call".
+
+Limitation: if the MSX-configuration uses a character-set, different from your keyboard-layout (e.g. international or japanese) the wrong characters are displayed. This happens, even if the processed character-codes are correct. To solve this problem you can either use a MSX-configuration supporting the correct language or by selecting the appropriate font in RuMSX -> Settings -> Locale...
+
+Side effects: CALL KANJI extends the keyboard driver, which supersedes CALL HOSTKEY ON and may therefore display a few characters differently than expected.
+
+IMPORTANT: the MSX-HOST.ROM 1.0 had a bug, which required CALL HOSTKEYON and CALL HOSTKEYOFF written without spaces between HOSTKEY and ON/OFF. This bug is fixed since ROM version 1.1. Now spaces can be used between HOSTKEY and ON/OFF.
+
+Example:
+
+
+
+CALL HOSTKEY ON CALL HOSTKEY OFF
+
+
+
+See also:
+
+MSX-Emulator keyboard, MSX localized settings
+
+
+
+
+
+CALL HOSTUPTIME
+
+
+(MSX Host-Interface ROM 1.1) Syntax:
+
+CALL HOSTUPTIME([CpuTimeString][[,][Vdp60Hz][,Vdp50Hz]])
+
+
+
+Function:
+
+Get uptime of the MSX-HOST (usually emulation). The uptime is measured by a string containing 1 up to 10 digits. The resolution of this timer is 255682 Hz (same as the Turbo-R system timer), but it provides more digits. In addition the number of completed 60Hz and 50Hz VDP refreshes can be queried. These values are 16bit integers only and will therefore overflow after approx. 20 minutes (depending on the frequency).
+
+The timers are being reset at least on every hard-boot. This enables profiling of the MSX-BIOS boot-time. Check the result of CALL HOSTGETBOOTMODE to determine how the system was booted.
+
+The call fails with a "Device I/O error", if not supported by the host. Example:
+
+
+
+CALL HOSTUPTIME(TI$,NT,PA) Ok PRINT "CPU-time: "; TI$ 1742998 Ok PRINT "VDP-time (60Hz/NTSC):"; NT 0 Ok PRINT "VDP-time (50Hz/PAL): "; PA 341 Ok
+
+
+
+See also:
+
+CALL HOSTGETBOOTMODE
+
+
+
+
+
+CALL HOSTSHUTDOWN
+
+
+(MSX Host-Interface ROM 1.1)
+
+Syntax:
+
+CALL HOSTSHUTDOWN
+
+
+
+Function:
+
+Quits MSX-emulation without confirmation-prompt.
+
+Generates a "Device I/O error" if not supported by the host.
+
+Programs are responsible for correct handling of such conditions (e.g. by displaying a message and looping infinite).
+
+Example:
+
+
+
+CALL HOSTSHUTDOWN
+
+
+
+See also:
+
+-
+
+
+
+
+
+CALL HOSTGETBOOTMODE
+
+
+(MSX Host-Interface ROM 1.1) Syntax:
+
+CALL HOSTGETBOOTMODE(Mode)
+
+
+
+Function:
+
+Get the boot-mode of the MSX-HOST (usually emulation). The boot-mode (hardware-reset, software-reset) is returned as integer, with up to 2 significant bits.
+
+Zero value means software-reset
+
+Non-zero value means hardware-reset
+
+
+
+Details: Bit 0 = 1 hardware-reset
+
+Bit 1 = 1 reserved for future use
+
+
+
+The boot-mode is similar to the Reset-Status flag (I/O-port $F4), but is also available on MSX 1+2 computers. In addition it is intended to detect real hardware-resets rather than preventing device conflicts.
+
+What kind of hardware resets? Those, who e.g. affect the CPU and VDP uptime (see corresponding function CALL HOSTUPTIME). Generates a "Device I/O error" if not supported by the host.
+
+Example:
+
+
+
+CALL HOSTGETBOOTMODE(M) Ok PRINT M 1 Ok
+
+
+
+See also:
+
+CALL HOSTUPTIME
+
+
+
+
+
+Free MSX-Emulator
+
+
+RuMSX is FreeWare! This is because no programmer can complete this program on his own. A really good MSX emulator requires components, informations and experience of other MSX users.
+
+Refer to the aboutbox for information about authors, helpers and emulator-version.
+
+Bugs, Suggestions, ...:
+
+Feel free to contact me about bugs, enhancements or suggestions. I (and sure you too) want to run MSX-programs on a stable emulator - based on a stable (non DOS-based) and fast operating system.
+
+RuMSX runs on Windows 98, Windows 2000 and later versions!
+
+(RuMSX version 0.40 and prior supports Windows 95 and Windows NT 4.0 as well)
+
+
+
+
+
+RuMSX window
+
+
+The RuMSX window can be resized in the following ways:
+
+Press Alt+Enter to toogle between FullScreen and windowed mode
+
+(or select "Emulator" -> "Full screen" in the menu).
+
+Select "Emulator" -> "Size" -> select "1:1", "2:1" or "3:1" in the menu.
+
+To resize the window fast and smooth you can also left-click on the size-border and drag it until the window has the desired size.
+
+Press "Shift" to keep the aspect-ratio unchanged or "Shift+Ctrl" to adjust the aspect ratio for PAL standard (in this case the rendering-speed may slightly decrease).
+
+
+
+See also:
+
+FullScreen
+
+
+
+
+
+Memory layout
+
+
+RuMSX comes with several different memory-layouts to emulate specific MSX-computers!
+
+(refer also to the MSX-Standard).
+
+Configuration names may be changed at later time!
+
+MSX International MSX1 machine.
+
+Slot 0: 32KB BIOS-ROM
+
+Slot 1: cartridge slot
+
+Slot 2: 16KB Disk-ROM
+
+Slot 3: 64KB RAM
+
+Specials: TMS9918 video (16KB), 50Hz (PAL)
+
+MSX 2
+
+International MSX2 machine, compatible to Philips Computers.
+
+POKE -1,170 might help to run some programs on this configuration.
+
+Slot 0: 32KB BIOS-ROM
+
+Slot 1: cartridge slot
+
+Slot 2: cartridge slot
+
+Slot 3-1: 16KB SubROM
+
+Slot 3-2: 256KB RAM-Mapper
+
+Slot 3-3: 16KB Disk-ROM
+
+Specials: V9938 video (128KB), 50Hz (PAL), CMOS
+
+MSX 2[b]
+
+International MSX2 machine, compatible to the european Sony "HB-F700D".
+
+POKE -1,255 might help to run some programs on this configuration.
+
+Slot 0: 32KB BIOS-ROM
+
+Slot 1: cartridge slot
+
+Slot 2: cartridge slot
+
+Slot 3-0: 16KB SubROM
+
+Slot 3-0: 16KB Disk-ROM
+
+Slot 3-3: 256KB RAM-Mapper
+
+Specials: V9938 video (128KB), 50Hz (PAL), CMOS
+
+MSX 2+
+
+Japanese MSX2+ machine.
+
+Slot 0: 32KB BIOS-ROM
+
+Slot 1: cartridge slot
+
+Slot 2-0: cartridge slot
+
+Slot 2-2: 32KB Kanji driver
+
+Slot 3-0: 16KB MSX Music
+
+Slot 3-1: 16KB SubROM
+
+Slot 3-2: 512KB RAM-Mapper
+
+Slot 3-3: 16KB Disk-ROM
+
+Specials: V9958 video (128KB), 60Hz (NTSC), CMOS, 128KB Kanji-ROM
+
+MSX Turbo-R
+
+Japanese MSX Turbo-R machine.
+
+Slot 0-0: 32KB BIOS-ROM
+
+Slot 0-2: 16KB MSX-Music (+PCM)
+
+Slot 0-3: 16KB Turbo-R bootlogo
+
+Slot 1: cartridge slot
+
+Slot 2: cartridgle slot
+
+Slot 3-0: 512KB RAM-Mapper
+
+Slot 3-1: 16KB SubROM
+
+Slot 3-2: 32KB Kanji-driver
+
+Slot 3-3: 64KB MSX-DOS 2.31
+
+Specials: V9958 video (128KB), 60Hz (NTSC), CMOS, 256KB Kanji-ROM
+
+fMSX (MSX 2)
+
+International MSX2 machine, similar to the fMSX default configuration.
+
+Slot 0: 32KB BIOS-ROM
+
+Slot 1: cartridge slot
+
+Slot 2: cartridge slot
+
+Slot 3-0: 16KB RS232-ROM
+
+Slot 3-1: 16KB SubROM
+
+Slot 3-1: 16KB Disk-ROM
+
+Slot 3-2: 128KB RAM-Mapper
+
+Slot 3-3: 16KB FM-PAC ROM
+
+Specials: V9938 video (128KB), 50Hz (NTSC), CMOS
+
+C-BIOS
+
+Please read the C-BIOS license before using.
+
+C-BIOS configurations are depending on the C-BIOS release. Because they are not depending on a particular RuMSX release they will not be documented here (refer to the MSX configuration-settings to get details about a selected C-BIOS or other configuration).
+
+CJS (CompuJunkies MSX2)
+
+Not defined yet!
+
+
+
+
+
+Reserved devicenames
+
+
+Reserved device-names are:
+
+MSX-Basic:
+
+CAS: tape (not supported on MSX Turbo-R)
+
+LPT: printer
+
+CRT: screen (text-mode)
+
+GRP: screen (graphic-mode)
+
+
+
+MSX-DOS:
+
+CON screen/keyboard I/O
+
+NUL 'null' device, does nothing
+
+AUX auxilary I/O (eg. RS232 serial)
+
+LST printer output
+
+PRN printer output
+
+
+
+
+
+Boot-keys
+
+
+Pressing special key during MSX-boot process (until a beep is sounded) may affect the current configuration. Following keys are defined:
+
+
+
+Shift Disables Disk-drive(s)
+
+Most free Basic-memory is available (28815 Bytes), but only tape-drive can be used for load/save-operations
+
+Ctrl Disables 2nd Disk-drive
+
+More free Basic-memory as on "normal" boot (with 2nd drive, even if this is only emulated)
+
+Select Disables Disk-Basic 2 and MSX-DOS 2
+
+This may be useful if MSX-DOS 2 causes compatibility-problems (because of new Memory-Mapper management, ...)
+
+
+
+
+
+Some keys are also commonly used by 3rd party ROMs. Their meaning is as following: MSX-Key Function
+
+Del bypass common Firmware
+
+Ins bypass Sunrise IDE-Controller (Firmware)
+
+ESC bypass Music-Module ROM
+
+Space bypass Game Master 2
+
+Graph bypass Game Master 2
+
+Graph bypass Holy Quran
+
+Graph bypass SCSI-Interface (HSH and NOVAXIS)
+
+
+
+
+
+See also:
+
+RuMSX keyboard, C-BIOS
+
+
+
+
+
+RuMSX keyboard
+
+
+
+
+MSX-KeyWindows-Key
+
+F1 F1
+
+F2 F2
+
+F3 F3
+
+F4 F4
+
+F5 F5
+
+F6 Shift+F1
+
+F7 Shift+F2
+
+F8 Shift+F3
+
+F9 Shift+F4
+
+F10 Shift+F5
+
+
+
+Special keys:
+
+
+
+MSX-KeyWindows-Key
+
+Select F7
+
+Stop F8, Pause
+
+Home/Cls Home/Pos1
+
+Kana (japanese) Page Up, ApplKey
+
+Code Page Up, ApplKey
+
+Graph Page Down, Alt
+
+Caps F9
+
+Pause (Turbo R) Alt+F11
+
+
+
+Notes:
+
+
+
+
+
+'ApplKey' () is only available on Windows keyboards (commonly used to display the context-menu). This key can be disabled in the Devices/Keyboard property-page.
+
+
+
+
+
+'Alt' should only be used in fullscreen mode, otherwise the Emulator-menu will respond to some keyboard-input. This key can be disabled in the Devices/Keyboard property-page.
+
+
+
+
+
+'Kana', 'Code' and 'Hangul' have the same scancode and therefore are exclusively avaliable on different keyboard layouts
+
+(common: 'Kana' toggles the japanese kanji keyboard mode, 'Hangul' toggles the korean hangul mode, 'Code' must be used simultaneously with other keys to produce code-characters).
+
+
+
+
+
+Very special keys:
+
+
+
+MSX-FunctionWindows-Key
+
+Ctrl+N End (goto end of line)
+
+Suspend (pause) F11
+
+Reset F12
+
+Quick-Save Ctrl+Alt+Shift S
+
+Quick-Load Ctrl+Alt+Shift L
+
+
+
+See also: Boot-keys,
+
+MSX locale settings,
+
+CALL HOSTKEY.
+
+
+
+
+
+Devices
+
+
+You can select supported MSX-devices in the 'Devices' property-sheet. Emulated devices may slow down the performance of RuMSX. At the time following devices are supported:
+
+Joysick & Mouse
+
+Printer
+
+RS232
+
+Disk
+
+SCSI
+
+Keyboard
+
+Video
+
+
+
+
+
+Toolbar
+
+
+The RuMSX toolbar provides several buttons for quick-access:
+
+
+
+
+
+open new MSX-configuration
+
+change disk in drive A:
+
+change disk in drive B:
+
+change tape
+
+
+
+
+
+change ROM cartridge in slot 1
+
+
+
+
+
+change ROM cartridge in slot 2
+
+
+
+
+
+change device in port 1 (joystick, mouse, touchpad)
+
+change device in port 2 (joystick, mouse, touchpad)
+
+change printer-assignment (parallel port)
+
+change RS232-assignment (serial port)
+
+switch to fullscreen
+
+restart RuMSX
+
+
+
+
+
+Statusbar
+
+
+The RuMSX statusbar gives status-information about the current MSX-mode:
+
+
+
+Indicator Value Meaning
+
+Video 60Hz NTSC
+
+50Hz PAL
+
+Device CAS Tape-recorder is accessed (motor running)
+
+FDD Floppy-disk is accessed (drive motor running)
+
+HDD Harddisk is accessed
+
+CD CD-ROM is accessed
+
+Caps LED CAPS Caps lock activated
+
+Code Kana Kanji mode activated (typing generates japanese characters)
+
+Hangul Hangul mode activated (typing generates korean characters)
+
+Turbo LED Turbo running in Turbo-R mode (R800-CPU), otherwise Z80
+
+Pause LED Pause Pause mode is activated (Turbo-R pause key)
+
+
+
+
+
+Performance
+
+
+If the MSX-Emulation runs to slow you can try to modify the settings in the 'Performance' property-sheet. The following components are affecting the system-performance:
+
+CPU-Load
+
+Video
+
+Sound
+
+SysInfo
+
+
+
+Please note that RuMSX performance is also affected by the currently used display-mode. If performance is poor you should also try to use a lower-resolution by changing settings in the 'Display-Resolution' property-sheet.
+
+Display Resolution
+
+The overall-performance is also affected by the emulated devices.
+
+
+
+
+
+"My MSX" folder contents
+
+
+RuMSX supports files within the "My MSX" folder. This feature is disabled by default,
+
+but can (and should) be enabled by separate tools.
+
+
+
+To enable the "My MSX" folder you can use e.g. "My MSX" folder setup.
+
+This tool does also include technical documentation for system administrators.
+
+The "My MSX" folder setup utility is not related to RuMSX, and need therefore
+
+to be installed separately!
+
+
+
+
+
+If "My MSX" support is enabled RuMSX uses the folders as listed below:
+
+
+
+Folder contents
+
+
+
+My MSX Documents, such as Print-output files or RuMSX debug-output files (RuMSX versions prior V0.41 used the TEMP directory as default for these files).
+
+
+
+MSX computers Currently unused.
+
+
+
+RuMSX configurations Pre-built RuMSX configurations can be copied into this directory.
+
+
+
+MSX media ROM-, Disk- and Tape-imges as well as other media-data
+
+(such as Harddisk-images or CD-ROM ISO-files).
+
+
+
+
+
+MSX save state Currently unused.
+
+
+
+RuMSX save state Contains RuMSX save-sate files.
+
+
+
+Settings and data Contains currently the CMOS.ROM file only.
+
+
+
+RuMSX SRAM Contains RuMSX SRAM files.
+
+
+
+
+
+The "My MSX" folder is supported since RuMSX V0.29. If older versions are used
+
+or the "My MSX" support is disabled the traditional location for data-files is used.
+
+This is in fact:
+
+
+
+
+
+Location contents
+
+
+
+Registry Contains RuMSX CMOS ROM.
+
+
+
+RuMSX Contains RuMSX save-sate files (*.RuMSX).
+
+
+
+CAS Contains tape-images.
+
+
+
+DSK Contains disk-images.
+
+
+
+ROM Contains ROM images.
+
+
+
+SRAM Contains RuMSX SRAM files.
+
+
+
+IMPORTANT: if the "My MSX" folder support is disabled not all users might be able to
+
+write files in the above directories (e.g. disk-images could be read-only)!
+
+
+
+
+
+RuMSX file-type information:
+
+RuMSX maps the supported file-types (as listed above) to the following extensions:
+
+File extensions Type
+
+
+
+*.rom ROM images
+
+
+
+*.dsk and *.ddi Disk images
+
+
+
+*.cas Tape images
+
+
+
+*.hd Harddisk images
+
+
+
+*.iso CD-ROM ISO images
+
+
+
+*.RuMSX RuMSX save-sate files
+
+
+
+
+
+DirectX
+
+
+RuMSX makes use of Microsoft's DirectX library. If you do not have installed it, you can find it on the Microsoft web-page (http://www.microsoft.com) or on several Game CD-ROM's. Take care that DirectX depends on your system-version: Windows Vista provides full DirectX 10 support and does not need to be updated for RuMSX.
+
+Windows XP provides full DirectX 8 support and does not need to be updated for RuMSX.
+
+Windows 2000 provides full DirectX 6 support and does not need to be updated for RuMSX.
+
+Windows NT 4.0 Service Pack 3 provides full DirectX 3 support.
+
+Windows NT 4.0 supports only partial functionality of DirectX 2.
+
+Windows ME provides full DirectX 7 support and does not need to be updated for RuMSX.
+
+Windows 98 provides full DirectX 5 support and does not need to be updated for RuMSX.
+
+Windows 95 is supported by common install-routines (and will only work on this platform).
+
+RuMSX functionality, which is only provided if following components are installed:
+
+Feature Requirement
+
+Full-Screen mode DirectDraw2
+
+Mouse-support DirectInput2
+
+Joystick-support DirectInput2 (for improvements only)
+
+
+
+
+
+FAQ: What can I do with RuMSX?
+
+
+Question: I've downloaded RuMSX. Please tell me what to do now - step by step.
+
+Answer: RuMSX has no wizard, which helps you to manage the emulated homecomputer. You need to have some basic knowledge, which can be found in this help-file. Here are some examples for commonly performed steps on the console:
+
+Choose a configuration: select a MSX2 computer by choosing "File", "Configuration", "MSX2" and OK. The emulation restarts now.
+
+MSX-Basic: select "Emulator", "Change media...", "Disk A:" and press the "Change..."-button to select your *.dsk file (i.e. R800BAS.DSK). From the Basic-Prompt type:
+
+FILES
+
+or
+
+FILES "*.BAS"
+
+to list all files or Basic-programs on the disk. You can run the desired program using LOAD or RUN command. This could be in example:
+
+RUN "AUTOEXEC.BAS"
+
+MSX-DOS: If using MSX-DOS you can display stored files using the DIR command. *.BAT and *.COM are valid extensions for executable MSX-DOS programs. Type the filename (without preceding command or it's extension) to run the file.
+
+
+
+
+
+FAQ: RuMSX is too slow. Why? What can I do?
+
+
+1) Use the "Turbo-R" configuration only if required, because emulation of faster CPU's may require more powerful PC's.
+
+RuMSX uses a default-configuration for high-performance PC's. Therefore the configuration should be changed if slower PC's are used:
+
+2) Use "Low-Resolution" with a FullScreen resolution of 320x240 (if exists). If available pefer 16bpp instead of 32bpp (or 24bpp).
+
+Select: Settings/Display resolution... to change this setting
+
+3) Skipping each 2nd frame increases the emulation speed significantly. This technology is also used by a lot of other MSX-Emulators. By default RuMSX displays each frame, which results in a smooth display but slower emulation.
+
+Select: Settings/Performance.../Video to change this setting
+
+4) Increasing CPU-Load may speed up RuMSX, even if "Try to run at same speed as real MSX" is selected.
+
+Select: Settings/Performance.../CPU-Load to change this setting:
+
+Click "Use minumum idle defined below" to enable Idle-time selection, then choose MSX-fast/Windows-slow. This choice increments the CPU-time assigned to RuMSX and makes the rest of windows less responsible as normal. in the future you may need to wait several seconds until Ctrl+ESC responds to your request. Also: parallel mode-communication may fail if RuMSX consumes too much CPU-time!
+
+Tip: to make sure that your PC is fast enough you can deselect "Try to run at same speed as real MSX" and select MSX-fast/Windows-slow as described above. This gives RuMSX the maximum CPU-time available in the system.
+
+5) Sound-Emulation for PSG/SCC/PCM requires a lot of CPU-time which slows down the emulation. Disabling sound-emulation increases the speed of RuMSX, but decreases the quality of played games. Also the performance-improvement is not so good as by changing the options listed above. PSG and SCC sound are enabled by default.
+
+Select: Settings/Performance.../Sound to change this setting
+
+
+
+
+
+FAQ: How to use diskettes
+
+
+RuMSX does currently not support the use of single program files. RuMSX supports only disk-images (*.DSK, *.DDI, *.IMG), real MSX-diskettes, tape- or ROM-images. So it's only possible to execute such programs from floppy-disks or disk-images.
+
+There are several utilities to create and maintain disk-images. A few of them are:
+
+- WRDSK and RDDSK (by Arnold Metselaar)
+
+- DISKMGR ("Disk-Manager" by Lex Lechz)
+
+
+
+Links to "Disk-Manager" and other MSX related programs can be found on http://www.lexlechz.at/msx/MSXlinks.html
+
+To change disks click the "A:" button or
+
+select "Emulator", "Change media..." in the menu:
+
+If you want to use disk-images: make sure that the radiobutton "Disk image" is selected. Click change to select a new disk-image. If the selected disk-image requires a restart check the "Reboot MSX" option, otherwise keep it unchecked. Click OK to apply your changes.
+
+This procedure can be repeated while playing a game, so you can also play multi-disk games.
+
+If you want to use real MSX-diskettes: make sure that the radiobutton "Disk drive" is selected. Chlick change if the displayed drive-letter does not meet your requirements. If the inserted disk requires a restart check the "Reboot MSX" option, otherwise keep it unchecked. Click OK to apply your changes.
+
+After specifiying the drive-letter you don't need to open this dialog again. RuMSX recognizes disk-changes automatically and handles them correctly (i.e. if playing multi-disk games).
+
+See also: Disk
+
+
+
+
+
+FAQ: How to use Tapes
+
+
+RuMSX supports the use of Tape-images. This support is currently limited to basic requirements, so it is not very comfortable yet.
+
+To change Tapes click the Tape-button or
+
+select "Emulator", "Change media..." in the menu and select the "Tape" property-tab: Wave-files are only supported through 3rd party-utilities, which can perform the required conversion between audio-data and the image-file.
+
+See also: Metal Gear (SaveGames), Tape
+
+
+
+
+
+FAQ: How to use ROM's
+
+
+RuMSX supports the use of ROM-images of several types.
+
+To change ROM's click the "1" button or
+
+select "Emulator", "Change media..." in the menu and select the "Slot 1" property-tab: Click change to select a new ROM-image. After selecting a new ROM The checkbox "Reboot MSX" is selected automatically. RuMSX tries to autodetect the type automatically. If the detected type is incorrect you need to adjust the "Type"-setting. Click OK to apply your changes.
+
+See also: Slot
+
+
+
+
+
+FAQ: How to use HardDisks and CD-ROMs
+
+
+Both device-types are available through SCSI- or IDE-Adapters, where RuMSX currently supports SCSI devices using the HSH or NOVAXIS ROM.
+
+One of these cartridges need to be inserted into a free ROM slot.
+
+Harddisk support Harddisk-drives can be configured by selecting "Emulator", "Devices..." and "SCSI".
+
+The boot-drive should be assigned to ID 0. Harddisks are supported as Harddisk images.
+
+The *.hd image files are compatible with M.E.S.S., so existing images can be re-used or new images can be created within RuMSX. If a new harddisk image should be created useful
+
+drive-geometry parameters can be found in the "New Harddisk" dialog help.
+
+Note: the assigned device (harddisk/direct access device) and the specified image are saved, so that the same harddisk is accessed whenever a supporting SCSI ROM is used!
+
+CD-ROM support
+
+CD-ROM drives can be configured by selecting "Emulator", "Devices..." and "SCSI".
+
+The drive should be assigned to ID 2, because this is the only ID supported by the CD-ROM
+
+driver MSXCDEX.COM. Other tools might support different IDs too, so other assignments (e.g. for a 2nd CD-ROM drive) could be useful anyway. CD-ROM's are supported as ISO images. The *.iso files can be created by several CD utilities.
+
+A particular CD-ROM image can be specified by selecting "Emulator", "Change media..." and "CD-ROM ControllerId:DeviceId".
+
+
+
+Note: the assigned device (CD-ROM) is saved, where the selected CD-ROM image is removeable and not saved if RuMSX is closed. Therefore after stopping and restarting RuMSX the CD-ROM device is still recognized, but no media is inserted.
+
+This behavior helps also to prevent problems with the HSH ROM, which does not support CD-ROM drives and hangs if booted with a mounted CD-ROM image.
+
+See also: Slot,
+
+CD-ROM,
+
+SCSI
+
+
+
+
+
+Known problems: Taskbar/Window/FullScreen
+
+
+Problem: Taskbar is resized if switching from FullScreen-mode into windowed mode.
+
+Solution:
+
+This problem appears (at least in Windows 95) if the Internet Exporer 4.0 Shell-extension is installed. In this case Windows fails to restore the original Window size and position. RuMSX has a built-in workaround for this problem, which is indicated by the movement after restoring the windowed mode (normally the Emulation-window is restored to the original position directly). Unfortunately the 2nd problem still remains and the Taskbar changes it's height (appears only in some cases and depends on it's initial height).
+
+This problem could not be reproduced on all Windows 95 machines (at least on Windows 95B not). Similar errors were detected on the Windows NT 4.0 shell (but only in rare cases). The reason of this error is not fully located now: it seems that this is ether a problem in the video-driver or operating-system.
+
+
+
+
+
+Known problems: Keyboard layout
+
+
+Problem: ":" not available on japanese keyboards
+
+Solution:
+
+Problem is recognized, but a solve is in pending state. Reasons and workaround are:
+
+Possible workaround: install an additional keyboard-driver (switchable using Alt+LShift)
+
+Japanese keyboard is called with codename "106", while US keyboard is called "101" - at least in Japan. I could not find German configuration available.
+
+So Takamichi installed 101 layout, and found thus; Inputting : was alright. But "yen mark", which should be inputtable with the key directly left to BACKSPACE key, is now only inputtable with the key 3rd right to L. This means, "]", which should be inputtable with the key 3rd right to "L", is not inputtable with U.S layout (code 101). Underbar key, which is 4th right to "M", is not inputtable too.
+
+There are a lot of other misconfigurement with 106 layout. 101 works slightly better, but there are some characters impossible to input with. Do you have exact info on this problem?? Keyboard allotment for modern Windows PC and MSX are, though with minor differences (like , almost same.
+
+With 106 layout, the ":" is inputtable with the key 2nd right to "0".
+
+
+
+
+
+Known problems: DirectX
+
+
+Some device-drivers are not compatible with DirectX. Due to the fact that RuMSX makes immediate use of installed Direct-X features this may cause crashes or other unexpected errors during execution. There are several Command-line arguments to avoid such problems.
+
+
+
+
+
+Known problems: Holy Quran
+
+
+Problem: Holy Quran (arabic MSX2) does not run.
+
+Solution:
+
+Holy Quran behaves very strange if some requirements are not fullfilled.
+
+In general the following hardware configuration should exist:
+
+Arabic MSX2
+
+
+
+
+
+64KB memory mapper
+
+
+
+
+
+Ensure that all requirements are met. The following table may help to find a resolution:
+
+Symptom Explanation
+
+MSX Basic starts instead of Holy Quran Holy Quran does not start on MSX1 machines.
+
+If you entered MSX Basic because you have pressed GRPH during boot you can also enter CALL QURAN to start the ROM.
+
+MSX boots repeatedly 1) no memory-mapper is present (or wrong mapper-type)
+
+2) machine does not have it's font in RAM (no arabic MSX)
+
+Beep sounds different Holy Quran interally calls "SET BEEP 2,4", the new setting is persitend in the CMOS and need to be changed explicitly.
+
+
+
+See also: CALL QURAN, SET BEEP
+
+
+
+
+
+Known problems: Nemesis 1
+
+
+Problem: Game accelerates unexpectedly on pre-defined stages of the game.
+
+Solution:
+
+a) Use a different display frequency. This can be done by using a different MSX configuration or superseding the used frequency in "Emulator" -> "Cheat".
+
+b) Reduce the number of CPU-cycles in "Emulator" -> "Cheat". A value of about 80% gives good results.
+
+Note: this problem always existed in RuMSX, but depending on the version it occurs on 50Hz (PAL) or 60Hz (NTSC) screen refresh rates only.
+
+Where real MSX machines do not seem to have this problem it seems to occur correctly on RuMSX. This is because Nemesis sometimes requires more CPU cycles per screen-refresh as physically available in the CPU. On original machines the operation is interrupted and continued at the next screen-refresh (which slows down the game correctly). In some configurations RuMSX has enough CPU cycles to process the operation within a single refresh resulting in the game being executed too fast. This affects only specific parts of the game, which exceed the instruction-limit of a single screen-refresh.
+
+
+
+
+
+Known problems: RAM-Slot
+
+
+Problem: Some disk-based programs lockup during load & start.
+
+Solution:
+
+Often programs (especially written for MSX2 machines) expect the RAM memory to be present in a specific slot. Depending on the used MSX configuration the RAM memory might be available in the expected slot (in this case it works) - or even not (in this case the program hangs).
+
+The following operations can be attempted to work around this problem, that is caused by incorrect coding of the software:
+
+Use the MSX2 configuration (Philips compatible) and run the following command in MSX-Basic:
+
+POKE -1,170
+
+Use the MSX2[b] configuration (Sony compatible) and run the following command in MSX-Basic:
+
+POKE -1,255
+
+Often the program loaders itself are also performing this operation. So the POKE command is not necessary and only the correct configuration has to be found.
+
+
+
+
+
+Known problems: Ranma 1/2
+
+
+Problem: Ranma 1/2 (TR game) does not run.
+
+Solution:
+
+Currently none!
+
+
+
+
+
+ROM-mapper incompatibility
+
+
+"64 in 1", "80 in 1" and "126 in 1" The ROM-mappers of these ROMs are using addresses in range from 4000H to 4003H for bank-switching. These adresses are incompatible with almost(?) every known MSX 2+ and MSX Turbo-R machine. If these mappers do not work the following configurations can be used to get them working:
+
+MSX (1) computers,
+
+e.g. "MSX" configuration
+
+MSX 2 computers,
+
+e.g. "MSX2" or "MSX2[b]" configuration
+
+CBIOS MSX 2+,
+
+e.g. "CBIOS-MSX2+" configuration
+
+
+
+
+
+Known problems: SET TIME and SET DATE are not applied
+
+
+Problem: RuMSX does not apply any CMOS-clock changes performed by SET DATE or SET TIME. Therefore GET DATE and GET TIME are (currently) always returning the real time used by the host operating-system (Windows).
+
+A few MSX-games which are resetting the system-time for use during gameplay will work incorrectly.
+
+Solution:
+
+Future versions of RuMSX might de-synchronize the RuMSX clock from the host operating-system real-time clock. This ensures that MSX-programs can set and retrieve local copies of date and time. It will be reset after rebooting the MSX-emulation, so that bad programs can not destroy real-clock values.
+
+This restriction is to prevent MSX-programs from changing the system-time.
+
+Please note that some operating-systems (as Windows NT4, Windows 2000, Windows XP and Windows Vista) might also prevent the user from changing the system-time. This restriction depends on user-permissions, but RuMSX should not be affected by this.
+
+
+
+
+
+Known problems: SCSI
+
+
+Problem: After booting with a SCSI-ROM DiskBasic is completely unavailable.
+
+Solution:
+
+SCSI-ROMs often need at least MSX-DOS 2.20. Use an MSX2/2+ configuration with MSX-DOS 2.20 to solve this problem (likely happens with NOVAXIS ROMs). Alternatively a Turbo-R with MSX-DOS 2.3x can be used also.
+
+
+
+Problem:
+
+I'm using the NOVAXIS SCSI-ROM, but when I attempt to enter the SCSI-BIOS by pressing DEL (during startup) the ROM hangs.
+
+Solution:
+
+This is a bug of the NOVAXIS-ROM. Ensure that the MSX-DOS is located in a slot prior the NOVAXIS ROM. If you are using MSX-DOS 2.20 insert this cartridge in the first slot.
+
+As workaround you can normally boot the NOVAXIS ROM and then soft-boot it again without loosing the RAM contents. After reboot you should be able to enter the SCSI-BIOS.
+
+
+
+Problem:
+
+I have created and mounted a harddisk image, but the system does not add a drive letter even after I have inserted an SCSI ROM (HSH or NOVAXIS).
+
+Solution:
+
+The harddisk does not have any partition. To create partitions on the harddisk (image) the FDISK-utility for the corresponding ROM has to be used. This is usually available on a separate utility-disk, that cames with the ROM cartridge. For HSH SCSI this is FDISK.COM and for NOVAXIS SCSI this is NFDISK.COM.
+
+
+
+Problem:
+
+I'm attempting to partition my virtual harddisk with NFDISK, but the utility hangs at initialisation.
+
+Solution:
+
+This is a limitation of the NOVAXIS NFDISK utility. It requires a Turbo-R for execution!
+
+Choose the "MSXTR800" configuration and restart RuMSX. After doing so NFDISK should run fine.
+
+
+
+Problem:
+
+I'm using the Novaxis-ROM 1.59.64 and it always hangs during initialisation.
+
+Solution:
+
+This is a bug of this NOVAXIS ROM version (Novaxis 25-08-96 1.59.64.rom). The problem occurs if the HostId 4 is used (5, 6 and 7 are working fine). Usually Id 7 is default, but it might have been changed for some reason. You can perform the following steps to fix this problem:
+
+boot RuMSX using the Novaxis ROM to MSX Disk-Basic
+
+execute CALL SETHOSTID(7) to change the Id from MSX Basic
+
+
+
+...or... boot RuMSX using the Novaxis ROM to MSX Disk-Basic (this initializes all necessary RAM variables)
+
+softboot RuMSX again and press DEL when the SCSI BIOS prompts for it
+
+press 'H' to change the Host ID, enter 7
+
+press 'S' to save changes and quit the setup
+
+
+
+
+
+Command-line arguments
+
+
+
+
+RuMSX supports the command-line arguments listed below. Multiple arguments can be combined in any order. Options are indicated by a leading '/' or '-', filenames must be separated by a blank character. Filenames which have blanks in it's name must be quoted (").
+
+disk, diskA, diskB Specifies the name of a disk-image (*.dsk, *.ddi)
+
+Example: MSX -diskA "Drive A.dsk"
+
+rom, rom0, rom1
+
+Specifies the name of a ROM-image (*.rom)
+
+Example: MSX -rom0 "Cartridge.rom"
+
+
+
+tape
+
+Specifies the name of a tape-image (*.cas)
+
+Example: MSX -tape "MyTape.cas"
+
+SOS
+
+Displays the trouble-shooter dialog before important RuMSX components are initialized. This dialog can be used to disable some features temporarily.
+
+This feature can be used to avoid problems using incompatible DirectX-drivers.
+
+Example: MSX /SOS
+
+NoDDraw
+
+Avoids the use of DirectDraw (DDRAW.DLL is not loaded)
+
+Example: MSX /NoDDraw
+
+NoDInput
+
+Avoids the use of DirectInput (DINPUT.DLL is not loaded)
+
+Example: MSX /NoDInput
+
+NoDSound
+
+RuMSX >= Build 0.14 does not use DirectSound, therefore this option does not have any effect in current versions of the MSX-Emulator. Anyway no error is displayed because of backward compatibility.
+
+Example: MSX /NoDSound
+
+NoMMWaveOut
+
+Avoids the use of Wave-Audio for sound output.
+
+Example: MSX /NoMMMidiOut
+
+NoMMMidiOut
+
+Avoids the use of MIDI-Out for sound output.
+
+Example: MSX /NoMMMidiOut
+
+NoSoundOut
+
+Activates the silent-mode which does not generate any sound output. This option can be used to prevent annoying MSX sounds while childrens are playing games.
+
+Note: this option is supported since RuMSX V0.40 and causes "Unsupported parameter" errors on prior versions!
+
+Example: MSX /NoSoundOut
+
+BoostCount1
+
+Speeds up the MSX-boot for the specified number of interrupts (50 or 60 for 1 second, depending on the used VDP frequency).
+
+To be independent from the VDP frequency the parameter BoostSeconds can be specified instead.
+
+Note: this option is supported since RuMSX V0.82 and causes "Unsupported parameter" errors on prior versions!
+
+Example: MSX /BoostCount:250
+
+BoostSeconds1
+
+Speeds up the MSX-boot for the specified number of seconds.
+
+Technical information: the number of seconds is converted to BoostCount by considering the VDP-frequency of the configured MSX-computer. If the boost-time is excessively high and the VDP-frequency is changed in meantime the value may not be accurate. If BoostSeconds and BoostCount are specified, BoostCount takes precedence.
+
+Note: this option is supported since RuMSX V0.82 and causes "Unsupported parameter" errors on prior versions!
+
+Example: MSX /BoostSeconds:5
+
+Combinations may look like this:
+
+
+
+MSX -NoDInput /NoDDraw
+
+MSX /NoDDraw -NoDInput -SOS
+
+MSX -NoDInput /rom1 "Antarctic Adventure.rom" /rom0 D:\KONAMI\GMaster.rom -diskA SAVEGAME.dsk
+
+
+
+1 = Boost-parameters are intended to speed-up the start-process only. They are NOT intended to run the MSX-emulation for a longer time. If this necessary the CPU performance-settings should be adjusted manually!
+
+See also:
+
+Trouble-shooting
+
+
+
+
+
+MSX localized settings
+
+
+
+
+Allows to patch ROM's to settings for different countrys. The default setting does not patch any used ROM.
+
+If a selection is made the MSX-Emulator will attempt to patch the system ROM’s to meet these criteria. The change will only take effekt is the MSX is fully rebooted (which means that the system ROM’s are reloaded).
+
+Font Allows you to specify a different font. This setting overwrites the font in the BIOS-ROM - including the font-specification. 'Default' means the font stored in the used MSX-ROM.
+
+
+
+
+
+Keyboard
+
+Attempts to patch the keyboard layout, which includes the keyboard-identfication stored in the BIOS-ROM. It's possible that this attempt fails on some BIOS-ROM's (likely with japanese origin: MSX 2+ and MSX Turbo-R). 'Default' means the keyboard-layout stored in the used MSX-ROM.
+
+Windows Keyboard
+
+This setting tries to analyze the currently used keyboard layout. The actual settings will be patched into the MSX BIOS-ROM. Due to this the keys should be correctly mapped!
+
+Patching of 'Windows keyboard' layout is not implemented yet!
+
+
+
+
+
+NOTE: the keyboard options are deprecated (failed experiment) and replaced by the working MSX host-interface, which should be used instead!
+
+The keyboard options will be removed in future versions of RuMSX. At present they remain for pending analysis only.
+
+
+
+
+
+FullScreen
+
+
+
+
+Change performance-settings for FullScreen. The following display-drivers are currently implemented and can be configured separately:
+
+Normal resolution (340x240 pixels, 256 colors)
+
+High resolution (544x456 pixels, truecolor)
+
+
+
+Display resolution for full-screen mode Select a resolution for full-screen display. This choice is only enabled if DirectDraw is installed and high-color and/or true-color video-modes are available.
+
+If the last used (or default) resolution is not available 'none' is selected and you must choose a new valid mode. If you apply the 'none' selection the previously (invalid) mode remains unchanged!
+
+Default-selection is '640 x 480 (24 bpp)', which means 640 pixels width, 480 pixels height and 24 bits per pixel to display different colors - which results in 16 millions of possible colors.
+
+Caution: higher width-, height- and/or color-values are slowing down the video-output.
+
+Tip: to increase the speed of the display-update change this setting to '640 x 480 (16 bpp)'. This decreases the number of simultaneously displayed colors to 65536, which reduces the graphic-quality a little bit - but this may increase the frame-rate significantly!
+
+
+
+
+
+The MSX standard
+
+
+There are 4 generations of MSX-computers: MSX (1) Minimum specifications:
+
+Z80 processor
+
+16KB RAM (up to 64KB)
+
+TMS9918 Video processor with 16KB VRAM
+
+Tape-support
+
+
+
+MSX 2
+
+Minimum specifications:
+
+Z80 processor
+
+64KB RAM (MemoryMapper, up to 4MB)
+
+V9938 Video processor with 64KB VRAM (up to 128KB)
+
+Tape-support
+
+360KB Disk-drive (up to 720KB)
+
+
+
+MSX 2+
+
+Minimum specifications:
+
+Z80 processor
+
+64KB RAM (MemoryMapper, up to 4MB)
+
+V9958 Video processor with 128KB VRAM
+
+Tape-support
+
+720KB Disk-drive
+
+
+
+MSX Turbo-R
+
+Minimum specifications:
+
+Z80 (8Bit) and R800 (16Bit) processor
+
+256KB RAM (MemoryMapper, up to 4MB)
+
+V9958 Video processor with 128KB VRAM
+
+720KB Disk-drive
+
+
+
+See also: common RuMSX memory layout's.
+
+
+
+
+
+C-BIOS
+
+
+This software is a substitute of BIOS which is needed when running MSX emulator.
+
+It is targeted for running cartridge image. Never use without reading LICENSE.
+
+
+
+LICENSE Copyright (c) 2002-2003 BouKiCHi. All rights reserved. Copyright (c) 2003 Reikan. All rights reserved. THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Please note that this license is valid for C-BIOS only and not related to RuMSX files.
+
+See also:
+
+C-BIOS Association, Boot-keys
+
+
+
+
+
+Keyboard
+
+
+
+
+This maps common MSX keys to Windows keys, which may cause conflicts. To solve possible problems you can uncheck the currently checked key-assignment for the RuMSX keyboard (which is also available on another, not common key):
+
+Use ALT-key to emulate GRP You can use the ALT key to emulate the MSX 'GRP' key. Prossible problems are:
+
+
+
+unwanted menu-access in windowed mode
+
+unwanted 'GRP'-input while switching with Alt+Enter
+
+
+
+'GRP' is also emulated with PageDn.
+
+Use Appl-key to emulate CODE/KANA
+
+You can use the ApplKey (, application defined, normally used to display the context-menu) to emulate the MSX 'CODE', 'KANA' (japanese) and 'HANGUL' (korean) key. This feature should not cause any problems, except unwanted entered Kanji-mode because of the not-common use of this key.
+
+'CODE', 'KANA' and 'HANGUL' is also emulated with PageUp.
+
+Note: the Appl-key is only available on Windows-keyboards!
+
+Use as default
+
+Currently RuMSX does not remember changed keyboard-settings, so this option is permanently disabled!
+
+
+
+See also:
+
+RuMSX keyboard
+
+
+
+
+
+Port
+
+
+
+
+Configure devices connected to the joystick-port
+
+Joystick Here you can select support for Joystick in port 1 and/or 2.
+
+You are also able to swap device-assignments here: i.e. you can use the the keyboard as MSX-Joystick 1 and PC-Joystick 1 as MSX-Joystick 2.
+
+Autofire; if you are using physical joysticks or gamepads (no keyboard-emulation) you can use button 3 as autofire for MSX-Joystick button 1 and button 4 as autofire for MSX-Joystick button 2.
+
+Caution: if you choose to emulate a MSX-Joystick with the keyboard you should check if the keys does not conflict with the used MSX-Program (keystrokes are always forwarded to the MSX-keyboard). 2 emulations are available:
+
+- Arrow-keys, Space (Button 1), Alt or AltGr (Button 2)
+
+- Arrow-keys, Insert (Button 1), Delete (Button 2)
+
+
+
+Note: Enhanced joystick-support is available if DirectInput 2 is installed on your system and a Joystick-compatible device is connected! If the device is not connected you're only able to select common drivers.
+
+Mouse/Trackball
+
+Mouse-emulation requires DirectInput to be installed on your system.
+
+Touchpad
+
+There is no emulation for Touchpad or other devices (like Paddle's) planned. Maybe it will be added at a later time...
+
+Cable connection
+
+The cable connection is intended to run "F1 Spirit 3D special" on 2 computers.
+
+There is no emulation for Cable connection planned. Maybe it will be added at a later time...
+
+Configure...
+
+Allows you to configure the selected port-device. This button is only enabled if the currently selected device supports such configuration-changes.
+
+Setup...
+
+Allows you to set-up the selected port-device. This featue is most likely to be used for joystick-calibration. The Setup button is only enabled if the currently selected device is a DirectInput-device.
+
+Use as default
+
+Check this option to remember the selected device as default. If remembered the device is used on every subsequent (re)start of RuMSX.
+
+Currently RuMSX remembers Joysticks and no-assignment only. Mouse/Trackball cannot be remembered yet!
+
+
+
+
+
+Printer
+
+
+
+
+Here you can enable printer-support including redirection of print-output to file. It's also possible to emulate MSX- and Epson-printers (ESC-sequences).
+
+No printer connected This is the default setting, which is also used if the stored configuration is invalid.
+
+If this "no connection" is set you will be informed, when an application wants to send the 1st character to the printer. In this case you'll be able to assign a real connection to the printer.
+
+If you don't want this you have to deselect the checkbox "ask if device is accessed".
+
+Pass data directly to printer
+
+This setting redirects the MSX parallel printer-output to any configured windows-port (parallel, serial, file, ...). Be careful with programs that are using MSX specific escape-sequences to control the printer!
+
+Note: even if Windows exposes specific ports, e.g. USB, not all of them can be used. Some ports are listed, even if they are not accessible. If one of them is selected, you'll get an error-message. The only solution for this error is to select a different printer-port.
+
+Print to file
+
+This setting redirects the MSX parallel printer-output to a file. You can verify the contents later and/or print the data-file multiple times.
+
+The default filename is 'MsxDat.prn'. The default directory is the "My MSX" folder (if enabled) or your TEMP (alternatively TMP) folder, if this is not set then the C:\ directory is used otherwise.
+
+Please note that the *.prn extension is recommended to identify printable files!
+
+Emulate printer (MSX or Epson)
+
+This is the printing-mode with highest compatibility. With this setting you can print graphics with MSX or Epson printer specific escape-sequences. But this mode is also much slower as the other ones - and - it prints low quality characters in many cases!
+
+IMPORTANT NOTES:
+
+The data in the printer-buffer is flushed if RuMSX terminates. Therefore incomplete pages are not printed immediately. To flush (force printing) of pending page-contents select Emulator -> Printer form feed in the menu. This corresponds to the "Form feed" button functionality on the real printer, that is being emulated.
+
+The Epson PI-40 color printer supports MSX printer-commands, therefore the type "MSX" must be selected instead of "Epson".
+
+
+
+
+
+Use as default
+
+Check this option to remember the selected device as default. If remembered the device is used on every subsequent (re)start of RuMSX.
+
+Currently RuMSX does not remember Printer settings, so this option is permanently disabled!
+
+
+
+
+
+RS232
+
+
+
+
+Configure the RS232 serial interface RS232 Here you can enable and configure the RS232-emulation (serial interface).
+
+Remark: the MSX supports multiple serial interfaces. This emulator currently supports only one of these interfaces (for common reasons this is more than enough).
+
+Support of RS232 is currently not implemented!
+
+Use as default
+
+Check this option to remember the selected device as default. If remembered the device is used on every subsequent (re)start of RuMSX.
+
+Currently RuMSX does not remember RS232 settings, so this option is permanently disabled!
+
+
+
+
+
+Disk
+
+
+
+
+Configure the disk-drive:
+
+Specify the drive-defaults for disks which cannot provide the required informations (corrupted or copy-protected) This choice specifies the properties of the floppy-disk-drive hardware. It is used if the format of a inserted disk (or disk-image) cannot be determined. This might be the case if copy-protected or corrupted disks (or images) are used.
+
+The MSX standard supports up to 8 installed drives (A: to H:), where H: is also associated with the RAM-Disk of MSX-DOS 2 (respectively Disk-Basic 2). This limit can not be changed, but the number of available drives (usually 2) can be increased by inserting more Disk-ROMs, SCSI- or IDE- Controllers.
+
+Use as default
+
+Check this option to remember the selected drive-settings. If remembered the device is used on every subsequent (re)start of RuMSX.
+
+Currently RuMSX does not remember disk-settings, so this option is permanently disabled! For now 720 KBytes is always default.
+
+
+
+
+
+SCSI
+
+
+
+
+Configure SCSI devices:
+
+Controller Displays the available SCSI-controllers. Currently only a single WD33C93A on port &H34 is supported. This controller has the Identifier 0, as subsequently referenced below.
+
+This SCSI-controller is supported by the HSH and NOVAXIS -ROM, where the latter does support CD-ROM drives too.
+
+Device Id
+
+Displays the devices of the currently selected controller. Listed devices are identified by
+
+Device ID (0-7)
+
+Controller Identifier (always 0)
+
+Device ID in combination with the Controller ID
+
+
+
+If a selected Device ID conflicts with the ID of the host-adapter the associated device is invisible until the host-id has been changed. This handling is implemented to prevent the host-adapter from being working, even if the configuration is invalid.
+
+Harddisk: device id 0 should be assigned to a harddisk, because (almost?) every SCSI controller attempts to boot from device 0.
+
+CD-ROM: device id 2 should be assigned to the CD-ROM drive, this is because MSXCDEX supports CD-ROMs with this Id only.
+
+Type
+
+Displays the device-type that is associated with the selected Device ID. Currently it is only possible to select no device, a Harddisk image or an CD-ROM image (ISO-image).
+
+CD-ROM drives can be accessed only after MSXCDEX has been installed (execute MSXCDEX -gSCSI to install MSXCDEX in DOS). Please note that CD-ROM drives are not supported by all controllers!
+
+Media
+
+Displays the currently selected media for the given device. If the device supports removeable medias (such as CD-ROM) this setting cannot be changed and has to be modified in the "Change Media" dialog.
+
+If the device supports non-removeable medias (such as a harddisk) the media can be changed by pressing "Change..." or a new one can be created by pressing "New...".
+
+Note: if a non-removeable media is changed RuMSX need to be restarted to apply the new media (in meantime the old media is still valid).
+
+Status
+
+Can be "not mounted", "mounted" or "mount failed". If available additional error-information is added too. This is also possible if the device is in "mounted" state, but there were errors during device access.
+
+Associated medias (such harddisk-images or ISO-images) are automatically mounted on the first device-access. Removeable medias (such as CD-ROM) are automatically unmounted when ejecting the device. Fixed medias (such as harddisk) are only unmounted when reset, shut-down or the disk has been parked.
+
+Note: any applied changes are only valid after RuMSX is rebooted!
+
+The information in the statusline is grayed if there are no changes and highlighted if there are pending changes that require a RuMSX reboot.
+
+Use as default
+
+Currently RuMSX automatically remembers SCSI device-assignments, so this option is permanently checked and disabled!
+
+
+
+
+
+Video
+
+
+
+
+Configure a video-capture device for use with the emulation of a MSX video-computer (MSX2 and above). If there is no capture-device installed or the currently used MSX configuration does not specify a video-computer these choices are disabled!
+
+Apply the MSX-Basic SET VIDEO command or any Video-Software to use this feature!
+
+Driver Select the prefered capture-driver.
+
+Protect video-mode switch
+
+Some capture-drivers do not support dynamic resolution-changes. Uncheck this box if your capture-driver handles resolution-changes (Desktop/FullScreen/...) properly!
+
+If this choice is selected a resolution-change causes a destruction and re-creation of the capture-window. This may take a little bit more time and can also cause other side-effects (flickering, ...).
+
+Overlay / Preview
+
+Choose the type of superimpose-display, which must be ether overlay-mode (hardware driven, faster) or preview-mode (software driven, slower).
+
+Display...
+
+Modify display-settings for the selected capture-driver.
+
+Format...
+
+Modify display-format for the selected capture-driver.
+
+Source...
+
+Modify video-source for the selected capture-driver.
+
+Last error
+
+Displays the last occured error regarding to the capture-device. This may indicate why a installed capture-device is not (or no longer) working properly.
+
+Important note: the settings within this property-page are applied immediately and cannot be canceled!
+
+Use as default
+
+Currently RuMSX does not remember changed video-devices and settings, so this option is permanently disabled!
+
+
+
+
+
+CPU-Load
+
+
+
+
+Change performance-settings for CPU and executions speed of the MSX-emulation.
+
+Try to run at same speed as real MSX Causes to run the emulator with real MSX speed, as good as possible. If the used machine is not fast enough or idle-settings (see below) are used the emulator still may not run with original speed, which means slower. Anyway the emulation will never run faster if this checkbox is selected.
+
+Use multimedia timer
+
+This choice is enabled if the checkbox 'Try to run at same speed as real MSX' is selected. The multimedia-timer ensures MSX emulation runs with real speed while consuming as less CPU time as necessary.
+
+Depending on your hardware the timer might not be available or have a too small resolution. If so this option is not available or should be unchecked.
+
+Hint: if you think that RuMSX runs slower after this option has been checked the timer resolution might be too small and you should uncheck it again. If this option does not impact the performance of RuMSX you should keep it selected, which enables other programs to run faster!
+
+Use minimum idle defined below
+
+This choice is enabled if the checkbox 'Try to run at same speed as real MSX' is selected. The minimum-idle settings makes sure that the emulator does not block-out other windows-programs (see below). If your PC is fast enough you can uncheck this box, so that the emulator can adjust it's speed with best match to original MSX machines.
+
+CPU-Load
+
+Higher CPU-Load will execute MSX-Programs faster. But:
+
+- other Windows-Applications may slow down
+
+- Windows itself is not so responsible as normal
+
+- Modem communication programs may loose data
+
+Save CPU-time if inactive
+
+Pauses RuMSX as long as the window is inactive (in background of other applications). This option might be useful when toggling between other programs (e.g. Chatting).
+
+This option is turned off by default, except for Terminal Service clients (remote connections to a non-local Windows Server).
+
+Note: The options real MSX-speed and minimum-idle are only enabled if a high-resolution performance counter exists.
+
+
+
+
+
+Video
+
+
+
+
+Change performance-settings for Video
+
+Skipped frames Displaying all frames (50 or 60 per second) may produce smooth animations, but it will slow down RuMSX dramatically. If the emulation runs very slow try to skip some updates of video-frames.
+
+
+
+
+
+Sound
+
+
+
+
+Change performance-settings for Sound. Take care that some sound-options may slow down RuMSX (see notes for the specified option). Loss of performance is very low if you run Windows NT (NT4, 2000, XP) on a multiprocessor machine (SMP).
+
+Use PSG/SCC sound Calculation of real-time MSX-Sound uses a lot of CPU-time. If the emulation runs very slow (or you want to get rid of the nasty sound) try to disable sound-output. Note: The generated wave-sound is 8 Bit, 22.05 KHz.
+
+Buffer size
+
+This setting defaults to 4096 Bytes, but can be changed if you expience some sound-problems. Keep the value as small as possibe: as larger the buffer as larger is the delay of a sound-event since real creation time.
+
+Use Turbo-R PCM
+
+Emulates MSX Turbo-R PCM sound. Currently sound is only generated if "Use PSG/SCC sound" is selected also (wave-based sound-generation).
+
+Emulation of PCM sound is not fully implemented yet, therefore the default setting is OFF.
+
+IT'S STRONGLY RECOMMENDED TO KEEP THIS SETTING OFF!
+
+Use MSX-Music/MSX-Audio (OPLL)
+
+Emulates MSX-Music and MSX-Audio music. If this box is checked you must select a MIDI-device for sound-output.
+
+Emulation of FM sound is not fully implemented yet, therefore the default setting is OFF.
+
+Midi device
+
+Specifies the MIDI device to be used for emulation of MSX-Music or MSX-Audio. The default assignment is "MIDI mapper". This combobox is disabled if the "Use MSX-Music/MSX-Audio (OPLL)" checkbox is unchecked.
+
+Currently not supported:
+
+SCC+ is currently not supported!
+
+
+
+
+
+SysInfo
+
+
+
+
+HiRes timer is present This information gives you a hint, how real-time Z80/R800 emulation is working. If a hires-timer is present and the timer-resolution is very high RuMSX is able to emulate original CPU speed as good as possible. The way RuMSX uses this timer might consume much CPU time and prevent other programs from executing properly while RuMSX is running. Not present hires-timer (or low resolution) are giving bad results and you may need to change Idle time (see CPU-load) manually.
+
+Multimedia timer is present
+
+This information gives you a hint, how real-time Z80/R800 emulation is working. If a multimedia-timer is present and the timer-resolution is very high RuMSX is able to emulate original CPU speed as good as possible. The use of the multimedia-timer prevents RuMSX from consuming too much CPU time, so other programs can be executed properly. Not present multimedia-timer (or low resolution) are giving bad results and you may need to change Idle time (see CPU-load) manually.
+
+Hint: a timer resolution of at least 20000 Hz is required for PAL (50 Hz) and 16666 Hz is required for NTSC (60 Hz).
+
+This computer has x processor(s), y active
+
+This information may give you a hint, how to optimize CPU intensive settings (i.e. sound-emulation):
+
+Number of processors: total number of processors in the computer. Not all of these processors must be available for use with programs.
+
+Active processors: active processors in the system. The number may be equal of less than the total number of processors in the system. This value is relevant for use with RuMSX.
+
+Note: in Windows 95/98/ME both values are always 1. Windows NT (2000, XP, Vista) supports the use of multiple processors (or processor-cores) and may keep the overall-performance unchanged, even if full sound-emulation is enabled.
+
+
+
+
+
+RuMSX display driver
+
+
+
+
+Select the display-driver to be used by RuMSX. The currently active driver is selected by default.
+
+The combobox lists all available video-drivers. Please note that higher resolutions do slow-down the MSX-emulation.
+
+Zoom display Magnifies the display. Check this box if you use RuMSX in low-resolution mode, but your DirectDraw driver does not support a useful mode (as 320*240). This option zooms the image that would be displayed too small in these cases.
+
+Caution: Zooming slows down the emulation, therefore it's recommended to keep this feature disabled as long as it is not required.
+
+IMPORTANT NOTES:
+
+The screen-mode is changed after the next completed screen-retrace. It's strongly recommended to adjust the display-size after the screen-mode has changed.
+
+Technical note: the currently active driver is the screen-mode which will be used after the next completed screen-retrace. So there might be some cases where this mode differs from the currently displayed graphics (because of immediately before changed display-mode which is not applied for the current screen-refresh).
+
+
+
+
+
+Output
+
+
+
+
+Choose output-device(s) for debug-information.
+
+RuMSX verbose information and CPU instruction traces are written to these devices, which can be:
+
+Debug window
+
+Output is written to the debug-window only (slow).
+
+File (append)
+
+Output is written into a file (fast), that need to be specified. If the file already exists it is NOT deleted and new output is appended. The file contents can be examined later.
+
+Debug window and file (append)
+
+Output is written into the debug-window and a file, that need to be specified. If the file already exists it is NOT deleted and new output is appended.
+
+
+
+
+
+Disk
+
+
+
+
+Change disk-media or protection
+
+RuMSX supports up to all 8 MSX drives (A: to H:). MSX drive letters may also be assigned to harddisk and CD-ROM devices (supported by SCSI or IDE drivers).
+
+Disk Displays the filename of the disk-image or the drive-letter of the physical device. The option "Disk image" and "Disk drive" specifies which type is to be used.
+
+Write protected
+
+Specifies if the media/drive is read-only. If the disk-image is read-only (e.g. on a CD-ROM) the option is selected and disabled. The choice in "Settings"->"Options"->"Media" specifies if a selected media is write-enabled or write-protected by default.
+
+Disk image / Disk drive
+
+Specifies if a disk-image or physical disk-drive should be used.
+
+Disk-drives can be emulated by using disk-images (*.DSK, *.DDI or *.IMG files).
+
+Disk n
+
+RuMSX supports concatenated disk-images. In case an image contains contents of one or more disks the corresponding combobox is enabled and a specific disk can be activated.
+
+All disks within the image are supposed to have the same capacity!
+
+Change
+
+Change the disk-image or drive-letter.
+
+My disks... browse for disk images within the "My Documents" folder, which belongs to the currently logged on user only. This is the recommended default-choice.
+
+Public disks... browse for disk-images that are shared between all users of the computer. By default this option is not displayed.
+
+RuMSX disks... browse for disk-images within the "RuMSX" folder.
+
+Change... drive letter: RuMSX also allows to use any physical drive - that supports removeable medias - as disk-drive. Note that this includes physically available floppy-drives (A:, B:, ...) as well as CD-ROM and Zip-drives!
+
+Warning: high-capacity-drives (as HD or ED diskettes, CD-ROMs or Zip-Disks) will not be recognized as valid media if accessed with common MSX drivers. So this option is reserved for special RuMSX tools which can take advantage of this feature!
+
+New...
+
+Create a new (empty) disk-image. The new media can be either unformatted or formatted with MSX-DOS or MSX-DOS 2.
+
+Eject
+
+Eject the currently selected disk-image.
+
+Properties
+
+Displays properties of the currently mounted disk-images (a changed image need to be applied first).
+
+Reboot MSX
+
+Specifies if the emulated MSX should be rebooted after the media is changed and the property page has been closed. This option is shared across all property-pages. It is automatically selected if a ROM image is changed.
+
+
+
+
+
+Tape
+
+
+
+
+Change tape-media or protection
+
+Remark: the MSX Turbo-R does not support Tape-drives! Anyway the emulator allow Tape access through BIOS-calls (but not from MSX-Basic). This feature allows to Load/Save 'Metal Gear' Tape-images in MSX Turbo-R emulation, even if this is not possible on real Turbo-R's!
+
+Tape Displays the filename of the tape-image.
+
+Write protected
+
+Specifies if the tape is read-only. If the tape-image is read-only (e.g. on a CD-ROM) the option is selected and disabled. The choice in "Settings"->"Options"->"Media" specifies if a selected media is write-enabled or write-protected by default.
+
+Change
+
+Change the tape-image.
+
+My tapes... browse for tape images within the "My Documents" folder, which belongs to the currently logged on user only. This is the recommended default-choice.
+
+Public tapes... browse for tape-images that are shared between all users of the computer. By default this option is not displayed.
+
+RuMSX tapes... browse for tape-images within the "RuMSX" folder.
+
+New...
+
+Create a new (empty) tape-image.
+
+Eject
+
+Eject the currently selected tape-image.
+
+Rewind
+
+Rewind the tape to the beginning. Useful if loading from tape.
+
+The choice in "Settings"->"Options"->"Media" specifies the position of a tape when it is inserted.
+
+Forward
+
+Forward the tape to the end. Useful for appending data to the tape.
+
+The choice in "Settings"->"Options"->"Media" specifies the position of a tape when it is inserted.
+
+
+
+
+
+Slot
+
+
+
+
+Change ROM-Cartridge (requires reboot to start).
+
+ROM Displays the filename of the ROM-image.
+
+Type
+
+After changing a ROM image the automatically determined ROM type is displayed. In case it is not correct (or does not work properly) it can be changed manually.
+
+If you change a ROM cartridge the emulator:
+
+a) tries to load a previously saved ROM type to assure the module runs*
+
+b) tries to auto-detect the type of the selected ROM
+
+c) assigns a default ROM type
+
+If a program does not run properly you should verify the ROM type. If the type is incorrect you must re-select the cartridge and change the default-type.
+
+Change
+
+Change the tape-image.
+
+My ROMs... browse for ROM images within the "My Documents" folder, which belongs to the currently logged on user only. This is the recommended default-choice.
+
+Public ROMs... browse for ROM-images that are shared between all users of the computer. By default this option is not displayed.
+
+RuMSX ROMs... browse for ROM-images within the "RuMSX" folder.
+
+Eject
+
+Eject the currently selected ROM-image.
+
+Reboot MSX
+
+Specifies if the emulated MSX should be rebooted after the media is changed and the property page has been closed. This option is shared across all property-pages. It is automatically selected if a ROM image is changed.
+
+Without rebooting you are able to read, copy and debug the ROM-contents!
+
+On original MSX machines this operation is very critical because you are hot-plugging components while the computer is powered. This may cause damage on the original hardware but is safe within this emulation.
+
+On original MSX machines this operation is very critical because you are hot-plugging components while the computer is powered. This may cause damage on the original hardware but is safe within this emulation.
+
+Caution: removing ROM-Cartridges without reboot may cause crashes of the emulated MSX! This is also critical on original MSX machines, which should always be powered off before doing this.
+
+
+
+
+
+* * *
+
+
+
+
+
+The available ROM-types and their meaning is listed below:
+
+Normal 16/32kB start on &H4000
+
+16KByte or 32KByte ROM's starting in page 1, without any special features. These ROM's are typically designed for 1st generation MSX computers.
+
+Normal 16kB, start on &H8000
+
+16KByte ROM's starting in page 2, without any special features. These ROM's are typically designed for 1st generation MSX computers.
+
+Normal 16/32/48/64kB, start on &H0000
+
+These ROM's don't have any special features and will come in typical sizes of 16KBytes (old Games, System ROM's), 32KBytes (System ROM's) or 64KBytes (MSX Painter, ...).
+
+Generic MegaROM (KONAMI4/8 KByte)
+
+Different 8KByte pages are mapped into adress ranges &H4000 to &H5FFF, &H6000 to &H7FFF, &H8000 to &H9FFF and &HA000 to &HBFFF. (more details)
+
+fMSX-specification: 3 - KONAMI4/8kB
+
+Generic MegaROM with SCC (KONAMI/8 KByte)
+
+Different 8KByte pages are mapped into adress ranges &H4000 to &H5FFF, &H6000 to &H7FFF, &H8000 to &H9FFF and &HA000 to &HBFFF. (more details)
+
+fMSX-specification: 0 - KONAMI/8kB
+
+Generic MegaROM with SCC (KONAMI5/KByte)
+
+Different 8KByte pages are mapped into adress ranges &H4000 to &H5FFF, &H6000 to &H7FFF, &H8000 to &H9FFF and &HA000 to &HBFFF. (more details)
+
+fMSX-specification: 2 - KONAMI5/8kB
+
+Konami GameMaster 2 with SRAM (RC755)
+
+Different 8KByte pages are mapped into adress ranges &H4000 to &H5FFF, &H6000 to &H7FFF, &H8000 to &H9FFF and &HA000 to &HBFFF. SRAM size is 8 KBytes (more details)
+
+ASCII MegaROM (ASCII/8 KByte)
+
+Different 8KByte pages are mapped into adress ranges &H4000 to &H5FFF, &H6000 to &H7FFF, &H8000 to &H9FFF and &HA000 to &HBFFF. (more details)
+
+fMSX-specification: 4 - ASCII/8kB
+
+ASCII MegaROM (ASCII/16 KByte)
+
+Different 16KByte pages are mapped into adress ranges &H4000 to &H7FFF and &H8000 to &HBFFF. (more details)
+
+fMSX-specification: 5 - ASCII/16kB
+
+ASCII MegaROM with SRAM (8 KByte)
+
+Different 8KByte pages are mapped into adress ranges &H4000 to &H5FFF, &H6000 to &H7FFF, &H8000 to &H9FFF and &HA000 to &HBFFF. SRAM size is 8 KBytes. (more details)
+
+This cartridge is used in Xanadu (2 megabit ROM).
+
+SRAM emulation is currently not supported!
+
+PAC or FM-PAC (SRAM)
+
+Different 8KByte pages are mapped into adress ranges &H4000 to &H5FFF, &H6000 to &H7FFF, &H8000 to &H9FFF and &HA000 to &HBFFF. (more details)
+
+MSX-Audio
+
+Different 32KByte pages are mapped into adress ranges &H0000 to &7FFF. ROM bank 0 does also contain 4KB RAM that are accessible in the memory area on &H3000-&H3FFF and &H7000-&H7FFF. Writing to &H7FFE switches to the corresponding bank. The address &H7FFF can also be written, but it's meaning is still unknown!
+
+MSX-Audio emulation is currently not supported!
+
+R-TYPE
+
+Game-Cartridge (3 Mega). Different 8KByte pages are mapped into adress range &H8000 to &HBFFF. Switch adress is &H7000.
+
+HALNOTE
+
+Cartridge (6 Mega but total copy is 8 Mega). Switch adress is &HAFFF, save-adress is &HA000, block-size is &H2000, first block is 00, last block is 7F. (more details)
+
+HALNOTE is currently not supported!
+
+Harry Fox with Snow Demonking
+
+Game-Cartridge, which mapper works very similar to MSX-DOS 2.x. The main difference is that the page-number is added to the write-address before bank-switching is performed (i.e. writing 1 into page 2 switches to page 3).
+
+Disk ROM
+
+16KByte ROM's starting in page 1, accesses floppy-disk controllers (FDC) of any type. RuMSX hooks corresponding BIOS entry points, so that drive(s) can be accessed. Common RuMSX-configuration are already equipped with a disk-drive and do not need to contain an additional Disk ROM.
+
+(more details)
+
+MSX-DOS 2 (release 1 or 2)
+
+The MSX-DOS 2.xx (V2.0x, V2.1x as well as V2.2x relase 1 and 2) ROM has totally 64KBytes of memory. Different 16KByte pages are mapped into the adress range &H4000 to &H7FFF. (more details)
+
+fMSX-specification: 1 - MSXDOS2
+
+MSX-DOS 2 (release 3)
+
+The MSX-DOS 2.2 (relase 3) ROM has totally 64KBytes of memory. Different 16KByte pages are mapped into the adress range &H4000 to &H7FFF. (more details)
+
+MSX-DOS 2.3x
+
+The MSX-DOS 2.3x ROM has totally 64KBytes of memory. Different 16KByte pages are mapped into the adress range &H4000 to &H7FFF. (more details).
+
+In difference to MSX-DOS 2 version 2.3x accesses floppy-disk controllers (FDC) of any type. RuMSX hooks corresponding BIOS entry points, so that drive(s) can be accessed. Common MSX-Turbo R configurations are already equipped with a MSX-DOS 2.3x and do not need to contain one more ROM of this type. Also: MSX-DOS 2.3x is not designed for use with MSX-versions < Turbo-R!
+
+IDE
+
+Sunrise IDE-Interface. The IDE interface enables handling IDE harddisks, CompactFlash memory cards and also ATAPI direct access devices such as Iomega ZIP100&250 and LS120 SuperDisk. (more details)
+
+The IDE-Interface is currently not implemented.
+
+Cross Blaim
+
+Different 16KByte pages are mapped into adress ranges &H4000 to &H7FFF and &H8000 to &HBFFF. Bank switching address is &H4045.
+
+64 in 1, 80 in 1
+
+As ASCII 8KB but maps in &H4000, &H4001, &H4002 and &H4003.
+
+Note: due to compatibility-problems this mapper may only work on MSX and MSX2 computers.
+
+90 in 1
+
+It is mapped by a I/O port instead of mapped memory. The port is &H77
+
+bits 0-5: selected 16KB page
+
+bits 6-7: addressing mode...
+
+00 = same page at 4000-7FFF and 8000-BFFF (normal mode)
+
+01 = same page at 4000-7FFF and 8000-BFFF (normal mode)
+
+10 = [page AND 3E] at 4000-7FFF, [page AND 3E OR 01] at 8000-BFFF (32KB mode)
+
+11 = same page at 4000-7FFF and 8000-BFFF, but 8000-BFFF has high 8KB and low 8KB swapped (Namco mode)
+
+126 in 1
+
+As ASCII 16KB but maps in 4000h and 4001h.
+
+Note: due to compatibility-problems this mapper may only work on MSX and MSX2 computers.
+
+Super Lode Runner
+
+The ROM is writing to address 0000h (yes 0) without selecting it's own ROM in that page. So it's ignoring the slot-select signal. This game only seem to use the ROM in page 2 (8000h - BFFFh). By writing to address 0, the memory is changed in 16Kb blocks.
+
+Konami's Synthesizer
+
+Konami's Synthesizer, RC 741, is not a game but a program to make music with. The cartridge has a D/A converter on board. The original cartridge came with a tape with samples on it (not as sound, it has to be loaded by Synthesizer).
+
+This cartridge has no special mapper; it's a standard 32kB ROM (&H4000 - &HBFFF). The special feature is the DAC; it is unbuffered 8 bit unsigned PCM like Matjusushi. You can write to it by writing to address 4000h.
+
+Majutsushi (Mah Jong 2) RC 765
+
+This game is special because there is a 8 Bit D/A converter for playing samples installed on it. It is a really simple setup. The ROM is one megabit (128kB).
+
+Since the size of the mapper is 8Kb, the memory banks are:
+
+Bank 1: 4000h - 5FFFh
+
+Bank 2: 6000h - 7FFFh
+
+Bank 3: 8000h - 9FFFh
+
+Bank 4: A000h - BFFFh
+
+Bank 1 is always fixed to the first block (0). The others can be changed by writing to any address in their memory area. This is important for emulators because the game uses A000h and B000h to switch the last bank.
+
+The D/A converter is really simple. To write data to it, simply write to any address between 5000h and 5FFFh. This is interpreted als 8 bit unsigned wave data, which is directly sent to the D/A (no buffering of any kind). Value 80h is centre (no amplitude), FFh max positive and 00h max negative.
+
+Konami SCC+ with 128KB RAM
+
+There are no real images of the SCC+ cartrige available. This is because the cartridge contains only the SCC+ soundchip and 64KB RAM, but no ROM. RuMSX provides a dummy file, that can be recognized as SCC+ cartridge with 128KB RAM. (more details)
+
+Konami produced 2 different SCC+ cartridges: "The Snatcher" and "SD Snatcher", each one with 64KB installed but in different memory areas. The currently supported 128KB type provides the full RAM memory, so that both games can be executed properly.
+
+Koei with SRAM
+
+Koei are known for strategy games, quite often their game was equipped with builtin SRAM.
+
+The Koei SRAM is mapped into address &H8000 to &H9FFF.
+
+Unfortunately I do not have an original ROM cartridge and can examine the ROM code and its behavior only! The SRAM seems to be enabled by writing &H69 to &H5FFF and &H4D to &H5FFE. The address &H4000 and &H4001 can be written too, but the ROM-bytes seem to be really write-only. Also the SRAM byte at &H9FA0 seems to have some special function, because it's written more frequently (probably causes some required time-delay when the write-adress is changed).
+
+Playball
+
+This is a 32Kb ROM cartridge from Sony. It has a DAC that plays the sound specified by the index written to address &HBFFF, in it's own address space. It's also reading it. Sounds are played when writing to &HBFFF:
+
+00="strike"
+
+01="ball"
+
+02="foul"
+
+03="safe"
+
+04="out"
+
+05=a sound when you start the game
+
+06=the sound when you hit the ball with your bat
+
+07=the ball is cought by the man behind the batter
+
+08="game set" (end of game)
+
+09=the men can walk freely after the batter gets hit by the ball
+
+0a=the batter gets hit by the ball
+
+If "Playball" samples are available they should be provided as playball_*.wav files in the samples\playball\ folder of RuMSX (playball_0.wav to playball_14.wav). Playback of these samples is supported since RuMSX v0.41 (prior versions will not play them).
+
+Holy Quran
+
+Holy Quran is a 1 MByte ROM, which is mapped into page 1 and page 2. Switch adresses of the 8KB pages are: &H5000, &H5400, &H5800, &H5C00.
+
+The cartridge ROM-start can be supressed by pushing the "Graph" key during startup.
+
+Notes:
+
+Holy Quran requires at least an Arabic MSX2 computer!
+
+If the ROM is running on a MSX1 computer the system reboots and runs MSX-Basic. If the system is MSX2 or higher, but not arabic the system reboots infinitely (except the "Holy Quran" ROM is bypassed by pressing the "Graph" key).
+
+The ROM invokes SET BEEP(2) to change the system beep permanent. To restore the original system beep SET BEEP(1) must be called on the Basic prompt.
+
+
+
+
+
+MSXView
+
+(more details)
+
+MSXView is currently not implemented.
+
+Zombie Hunter
+
+Zombie Hunter uses the switch adresses &H6400, &H6A00, &H7400 and &H7A00 to switch the 8KB banks located in page 1 and 2.
+
+Classroom Network
+
+The Classroom Network is currently not supported (regardless its possible to boot this ROM in offline mode).
+
+The ROM has 32KB in size and is located in page 1 and 2, where the area &H7800 to &H7FFF contains RAM memory.
+
+MSXtra
+
+The MSXtra consists of 8KB ROM at &H4000-&H5FFF and 2KB RAM at &H7800-&H7FFF. The RAM memory is mirrored to &H6000-&H67FF, &H6800-&H6FFF and &H7000-&H77FF. If the cartridge is equipped with 8KB RAM the memory can be used normally.
+
+RuMSX emulates 8KB RAM to provide more memory (while having less effort in the implementation).
+
+This information applies to MSXtra - Version 2.0 but may also be valid for older versions.
+
+MSX Host-Interface
+
+The MSX Host-Interface ROM 1.x consists of 16KB ROM at &H4000-&H7FFF and 256 Bytes RAM at &H7F00-&H7FFF. The full documentation of the ROM used Host-Interface can be found in Interface-ROM for the host operating-system.
+
+
+
+
+
+Currently unsupported cartridge types:
+
+Generic without SCC (KONAMI4/16KByte)
+
+HALNOTE
+
+IDE
+
+MSXView
+
+Classroom Network
+
+
+
+
+
+* * *
+
+
+
+* = You can create this settings-file if you have problems to run a specific ROM image because in normal cases the auto-detection works properly and the value need not to be changed. The ROM type is saved in an INI-file which has the same name as the ROM-image (i.e. C:\RuMSX\ROM\MSXDOS22.ROM tries to read C:\RuMSX\ROM\MSXDOS22.INI). Save your settings in the section [ROM] (same name as the extension, or [NoExtension] if no extension is used). This convention allows to save settings for images with the same name but different extensions. Remember that the INI file must be located in the same directory as the ROM image.
+
+To specify the ROM-type add the keyword 'RomType=' to this section. The following numeric value is compatible with fMSX, so you don't need to figure out the same value again. The meaning of these values is described above.
+
+Example: Majutsushi (Mah Jong 2) is not marked as Konami ROM, so it's type cannot be detected correctly. The file MAHJONG2.ROM should be used with MAHJONG2.INI:
+
+[ROM] RomType=0
+
+
+
+* * *
+
+
+
+Thanks to:
+
+Sandy Pleyte -> for information about "64 in 1", "80 in 1", "90 in 1" and "126 in 1" Korean ROM mappers.
+
+Sean Young -> for information about "Super Lode Runner", "Konami's Synthesizer", "Majutsushi (Mah Jong 2)" and "FM-PAC".
+
+
+
+
+
+New MSX harddisk
+
+
+
+
+Create a new MSX harddisk image that is also compatible with M.E.S.S.
+
+Change these values until they meet your requirements, then press OK to specify a (path and) filename for the new image.
+
+
+
+
+
+The parameters for the drive-geometry can be specified as following: Cylinders 1-1024
+
+Heads 1-16
+
+Sectors 17
+
+Bytes per sector 512
+
+This results in a maximum capacity of 129.364 MB per harddisk image.
+
+
+
+
+
+Useful values can be:
+
+Cylinders Heads Sectors Capacity Product
+
+1024 16 17 129.3640 MB
+
+1001 15 17 127.6285 MB
+
+980 10 17 83.3000 MB Western Digitial Caviar AC280 (81 MB)
+
+965 10 17 82.0250 MB Quantum ProDrive 80AT (80 MB)
+
+977 10 17 43.0450 MB Quantum ProDrive ELS 85AT (40 MB)
+
+820 6 17 41.8200 MB Seagate ST351AX (42.82 MB)
+
+980 5 17 41.6500 MB Seagate ST352AX (42.82 MB)
+
+965 5 17 41.0125 MB Quantum ProDrive 40AT (40 MB)
+
+
+
+
+
+* * *
+
+
+
+
+
+Important note: the created harddisk-image is not partitioned or formatted. To create and format partitions the FDISK-utility has to be used. This utility is usually present on the MSX-DOS diskette that cames with the harddisk-controller.
+
+HSH provides FDISK.COM and NOVAXIS provides the NFDISK.COM utility for this reason.
+
+
+
+
+
+SCSI CD-ROM
+
+
+
+
+Change SCSI CD-ROM media
+
+This property-page can be used to insert/eject/replace a CD-ROM, that is supported by MSX SCSI-Controllers.
+
+RuMSX supports CD-ROMs as ISO-image! Because a CD-ROM is a removeable media the change is applied immediately (RuMSX does NOT need to be restarted).
+
+The notebook tab is labeled with "ControllerId:DeviceId", where the ControllerId 0 corresponds to the WD33C93A on port &H34. The DeviceID 2 is supported by the CD-ROM driver MSXCDEX.COM, where other IDs are not and can be accessed by using specific tools only. SCSI support requires a corresponding ROM cartrige (e.g. HSH or NOVAXIS) to be inserted in a free slot.
+
+Media
+
+Displays the filename of the CD-ROM-image.
+
+Change
+
+Change the CD-ROM-image.
+
+Important: if an SCSI-Controller does not support CD-ROM drives and a media is inserted this might cause unpredictable results! For example booting the HSH SCSI controller with a CD-ROM (ISO-file) media inserted causes the system to fail (MSX hangs or causes other strange problems).
+
+My CD-ROMs... browse for CDROM-images within the "My Documents" folder, which belongs to the currently logged on user only. This is the recommended default-choice.
+
+Public CD-ROMs... browse for CDROM-images that are shared between all users of the computer. By default this option is not displayed.
+
+RuMSX CD-ROMs... browse for CDROM-images within the "RuMSX" folder.
+
+Eject
+
+Eject the currently selected CD-ROM-image.
+
+Status
+
+Displays the status of the selected CD-ROM image.
+
+Common states are "mounted", "not mounted" or "mount failed". In this way the status can be used for MSX controller debugging and problem determination as well.
+
+
+
+
+
+* * *
+
+
+
+See also: Slot, SCSI
+
+
+
+
+
+Font specification
+
+
+
+
+The font-specification is stored in the bits 0-3 of &H002B in the BIOS-ROM. Possible values have the follwing meanings:
+
+0000 (&H0) - Japanese
+
+0001 (&H1) - International
+
+0010 (&H2) - Korean
+
+(&H3 to &HF are reserved)
+
+See also:
+
+MSX character set
+
+
+
+
+
+Keyboard identification
+
+
+
+
+The keyboard-identification is stored in the bits 0-3 of &H002C in the BIOS-ROM. Possible values have the follwing meanings:
+
+0000 (&H0) - Japanese
+
+0001 (&H1) - International
+
+0010 (&H2) - French
+
+0011 (&H3) - American
+
+0100 (&H4) - German
+
+0101 (&H5) - Korean
+
+0110 (&H6) - Danish
+
+0111 (&H7) - Norwegian
+
+1000 (&H8) - Swedish
+
+1001 (&H9) - Spanish
+
+1010 (&HA) - Russian
+
+(&HB to &HF are reserved)
+
+
+
+
+
+Configure port device
+
+
+
+
+This dialog allows you to configure the port-device for better handling during gameplay.
+
+Swap Y-axis and controller-buttons This setting is intended for use with racing-games like Konami's "Road Fighter" and "F1 Spirit". Those games are using 'Button 1' to speed-up and 'Button 2' for break, as well as 'Up' for gear-up and 'Down' for gear-down (if possible).
+
+Swapping those assignments will change the device-response to the following:
+
+'Left' turns left
+
+'Right' turns right
+
+'Forward/Gas' speeds up
+
+'Backward/Break' slows down or breaks
+
+'Button 1' moves up
+
+'Button 2' moves down
+
+
+
+This changed assignment might be very useful if you're playing racing-games by using a PC Steering-Wheel connected as joystick-device. I.e. if you play "Road Fighter" with a steering-wheel and swap the assignments you can use the pedals to speed-up and break your car. To finally fix this change you need to use button 1 for moving the cursor up and button 2 for moving the cursor down (to perform game-selections).
+
+
+
+
+
+Generic MegaROM without SCC (KONAMI4/8 KByte)
+
+This type is used Konami cartridges that do not have a SCC and some others: Nemesis, Penguin Adventure, Usas, Metal Gear, Shalom, The Maze of Galious, Aleste 1, 1942, Heaven, Mystery World, and more.
+
+Since the size of the mapper is 8Kb, the memory banks are:
+
+Bank 1: 4000h - 5FFFh Bank 2: 6000h - 7FFFh Bank 3: 8000h - 9FFFh Bank 4: A000h - BFFFh
+
+And the address to change banks:
+
+Bank 1: <none> Bank 2: 6000h Bank 3: 8000h Bank 4: A000h
+
+Note that in order for The Game Master 2 to work with a cartridge of this type, bank 1 must be fixed at 0. This is the reason The Game Master 2 doesn't work with these cartridges on fMSX. While The Game Master 2 searches for memory in page 1 and 2 it overwrites 4000h. If bank 1 is changed, it won't find the AB code and the cartridge won't be detected.
+
+
+
+
+
+Generic MegaROM with SCC (KONAMI/8 KByte)
+
+The SCC of this Cartridge can be accessed by writing data into adress &H98xx. Mapper write area begins at &H4000.
+
+
+
+
+
+Generic MegaROM with SCC (KONAMI5/8 KByte)
+
+This type is used Konami cartridges that do have a SCC and some cartridges not made by Konami: Nemesis 2, King's Valley 2, Nemesis 3, Space Manbow, Solid Snake, Quarth, Ashguine 1, Animal, Arkanoid 2, and more.
+
+Since the size of the mapper is 8Kb, the memory banks are:
+
+Bank 1: 4000h - 5FFFh Bank 2: 6000h - 7FFFh Bank 3: 8000h - 9FFFh Bank 4: A000h - BFFFh
+
+And the address to change banks:
+
+Bank 1: 5000h - 57FFh (5000h used) Bank 2: 7000h - 77FFh (7000h used) Bank 3: 9000h - 97FFh (9000h used) Bank 4: B000h - B7FFh (B000h used)
+
+If it is a Konami cartridge, you can use the SCC by writing a value with bits 0 - 5 set (3Fh, bits 6 and 7 do not matter) to 9000h - 97FFh, you can read and write to the SCC in the memory area 9800h - 9FFFh. See SCC Sound Chip for more information.
+
+
+
+
+
+Konami GameMaster 2 with SRAM (RC755)
+
+This is a 1 megabit ROM cartridge with 8 Kb SRAM. Because of the SRAM, the mappers have special features.
+
+Since the size of the mapper is 8Kb, the memory banks are:
+
+Bank 1: 4000h - 5FFFh Bank 2: 6000h - 7FFFh Bank 3: 8000h - 9FFFh Bank 4: A000h - BFFFh
+
+And the addresses to change banks:
+
+Bank 1: <none> Bank 2: 6000h - 6FFFh (6000h used) Bank 3: 8000h - 8FFFh (8000h used) Bank 4: A000h - AFFFh (A000h used) SRAM write: B000h - BFFFh
+
+If SRAM is selected in bank 4, you can write to it in the memory area B000h - BFFFh.
+
+The value you write to change banks also determines whether you select ROM or SRAM. SRAM can be in any memory bank (except bank 1 which can't be modified) but it can only be written too in bank 4.
+
+bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 | ---------------------------------------------------------- function | X | X | SO | 1=SRAM/0=ROM | R3 | R2 | R1 | R0 |
+
+If bit 4 is reset, bits 0 - 3 select the ROM page as you would expect them to do. Bits 5 - 7 are ignored now. If bit 4 is set, bit 5 selects the SRAM page (first or second 4Kb of the 8Kb). Bits 6 - 7 and bits 0 - 3 are ignored now.
+
+Since you can only select 4Kb of the SRAM at once in a memory bank and a memory bank is 8Kb in size, the first and second 4Kb of the memory bank read the same 4Kb of SRAM if SRAM is selected.
+
+
+
+
+
+ASCII MegaROM (ASCII/8 KByte)
+
+This type is used in many Japanese-only cartridges. You can find it in Valis, Dragon Slayer, Outrun, Ashguine 2, and many more.
+
+Since the size of the mapper is 8Kb, the memory banks are:
+
+Bank 1: 4000h - 5FFFh Bank 2: 6000h - 7FFFh Bank 3: 8000h - 9FFFh Bank 4: A000h - BFFFh
+
+And the address to change banks:
+
+Bank 1: 6000h - 67FFh (6000h used) Bank 2: 6800h - 6FFFh (6800h used) Bank 3: 7000h - 77FFh (7000h used)
+
+Bank 4: 7800h - 7FFFh (7800h used)
+
+
+
+
+
+ASCII MegaROM (ASCII/16 KByte) This type is used in a few cartridges: Xevious, Fantasy Zone 2, Return of Ishitar, and probably some more.
+
+Since the size of the mapper is 16Kb, the memory banks are: Bank 1: 4000h - 7FFFh Bank 2: 8000h - BFFFh
+
+And the address to change banks:
+
+Bank 1: 6000h - 67FFh (6000h used) Bank 2: 7000h - 77FFh (7000h used)
+
+
+
+
+
+ASCII MegaROM with SRAM (8 KByte)
+
+It is much like the normal ASCII 8Kb. This type is used in Xanadu, with a 2 megabit ROM. Since the size of the mapper is 8Kb, the memory banks are: Bank 1: 4000h - 5FFFh Bank 2: 6000h - 7FFFh Bank 3: 8000h - 9FFFh Bank 4: A000h - BFFFh
+
+And the address to change banks:
+
+Bank 1: 6000h - 67FFh (6000h used) Bank 2: 6800h - 6FFFh (6800h used) Bank 3: 7000h - 77FFh (7000h used) Bank 4: 7800h - 7FFFh (7800h used)
+
+The SRAM behaves just like a page of the ROM. The SRAM can be written too only if is selected in bank 3 or 4. To select it, write value with bit 5 set (20h) to the address to change banks.
+
+
+
+
+
+FM-PAC
+
+
+
+
+The PAC and FM-PAC cartridge contains 64KByte ROM which is mapped though pages of 16KB size. The 1st 16KB in page 1 do contain the MSX-Music BIOS. The remaining 48KB are used by the FM-PAC Wizard (see MSX-Basic command CALL FMPAC) and can be mapped to the same page. The FM-PAC contains also 8KB SRAM memory.
+
+4000-5FFD: SRAM / ROM
+
+If SRAM is activated then the adress-space from &H4000 to &H5FFD can be read and written to.
+
+
+
+5FFE, 5FFF: SRAM read enable (&H4000-&H5FFD)
+
+These 2 bytes are also associates with the 8KB SRAM, but must have fixed values to activate SRAM read-access:
+
+5FFE: 0x4D ('M')
+
+5FFF: 0x69 ('i')
+
+
+
+7FF4: register write-port
+
+Accepts a register-number if OPLL activated. This address is write-only.
+
+
+
+7FF5: data write-port
+
+Accepts data of OPLL is activated. This address is write-only.
+
+
+
+7FF6: SRAM-mapper
+
+If bit 0 is set to 1 the OPLL is activated, if set to 0 the OPLL is deactivated
+
+If bit 4 is set to 1 the SRAM is enabled, if set to 0 ROM is enabled
+
+Reading from this address may(!) only have bit 0 and bit 4 set, all others are zero.
+
+Note: even if SRAM is enabled the memory-address &H5FFE and &H5FFF (or &HBFFE and &HBFFF) must contain the defined values 'M' and 'i', to activate SRAM
+
+
+
+7FF7: ROM-mapper
+
+Bits 0 and 1 are specifying the ROM-bank to be mapped into page 1 (&H4000-&H7FFF).
+
+
+
+A000-BFFD: SRAM / ROM
+
+If SRAM is activated then the adress-space from &HA000 to &HBFFD can be read and written to.
+
+
+
+BFFE, BFFF: SRAM read enable (&HA000-&HBFFD)
+
+These 2 bytes are also associates with the 8KB SRAM, but must have fixed values to activate SRAM read-access:
+
+BFFE: 0x4D ('M')
+
+BFFF: 0x69 ('i')
+
+
+
+
+
+* * *
+
+
+
+Note: where normal games are using SRAM starting at &H4000 the MSX 2+ game "Laydock 2 - Last Attack" accesses the SRAM starting at &HA000.
+
+
+
+
+
+SOFT TITLE : HALNOTE (6M)
+
+BOARD : HAL ENGINE III (HAL LABORATORY) MEGAROM CONTROLLER : M17H003 (OKI JAPAN:64pin) -- Konami 8KB Method(?) ROM : HALOS-14 (40PIN:2M for HALNOTE OS??), LH5321L7 (SHARP:32PIN), LH532122 (SHARP:32PIN) for KANJI & MSX-JE
+
+SRAM(?) : AKM624ALSP-12 (ASAHI KASEI:28PIN) * 2EA BATTERY : BR2330 (+3V) MATSUSHITA ELECTRIC JAPAN) ANOTHER CHIP : M74HC244P (MITSUBISHI : 20PIN) * 2EA, M74HC245P (MITSUBISHI :20PIN), HBN-1K (9K4 12) (RICHO : 20PIN) SWITCH ADDRESS : AFFF
+
+SAVE ADDRESS : A000
+
+BLOCK SIZE : 2000
+
+FIRST BLOCK (FIRST BANK): 00
+
+LAST BLOCK (LAST BANK) : 7F
+
+TOTAL SIZE : 8Mega Bit (REAL SIZE : 6Mega Bit) * BLOCK 00 ~ 1F (2Mega Bit) : HALNOTE's Operating System Area.
+
+* BLOCK 2F ~ 3F (2Mega Bit) : Non Using Area. (Maybe RAM??) * BLOCK 40 ~ 7F (4Mega Bit) : JIS 1st/2nd Kanji & MSX-JE
+
+
+
+
+
+Disk ROM (patched)
+
+The disk-rom is patched, so that it can be used with every type of disk-controller (port-based or different controllers mapped into the ROM). Patches are applied for the following BIOS-functions:
+
+4010: PHYDIO 4013: DSKCHG 4016: GETDPB 401C: DSKFMT 401F: DRVOFF
+
+
+
+* * *
+
+
+
+High-level disk-I/O (currently not supported by RuMSX) The CJS (CompuJunkies) MSX2-Emulator added some more patches to support high-level disk-I/O, which means: a harddisk-directory can be mounted and files on the workstations harddisk can be accessed without moving them into a disk-image or to a physical floppy-disk.
+
+The patches for high-level disk-I/O are:
+
+4004: 0A -- CALL Statement handler (Lo/Hi) 4005: 40 ; 000A: CALL Statement handler (see below) 4010: PHYDIO 4013: DSKCHG 4016: GETDPB 4019: CHOICE 401C: DSKFMT 401F: DRVOFF 436C: (13 delete file) 4392: (17 rename file) 4462: (0D open file) 456F: (10 close file) 461D: (16 create file) 4775: (14 sequential read) 477D: (15 seguential write) 4788: (21 random read) 4793: (22 random write) 47B2: (27 random block read) 47BE: (26 random block write) 47D1: (28 random write with zero fill) 4FB8: (11 search first) 5006: (12 search next) 501E: (23 get file size) 5058: (1A set dma) 505D: (1B get allocation) 50C8: (24 set random record) 50D5: (0E select disk) 7704: (????) ; 7F2E: 31 2D 53 53 2C 39 53 2C 38 30 54 0D 0A 32 2D 44 1-SS,9S,80T..2-D 7F3E: 53 2C 39 53 2C 38 30 54 0D 0A 33 2D 53 53 2C 38 S,9S,80T..3-SS,8 7F4E: 53 2C 38 30 54 0D 0A 34 2D 44 53 2C 38 53 2C 38 S,80T..4-DS,8S,8 7F5E: 30 54 0D 0A 35 2D 53 53 2C 39 53 2C 34 30 54 0D 0T..5-SS,9S,40T. 7F6E: 0A 36 2D 44 53 2C 39 53 2C 34 30 54 0D 0A 37 2D .6-DS,9S,40T..7- 7F7E: 53 53 2C 38 53 2C 34 30 54 0D 0A 38 2D 44 53 2C SS,8S,40T..8-DS, 7F8E: 38 53 2C 34 30 54 0D 0A 39 2D 51 75 69 63 6B 46 8S,40T..9-QuickF 7F9E: 6F 72 6D 61 74 20 28 65 78 69 73 74 69 6E 67 20 ormat (existing 7FAE: 66 6F 72 6D 61 74 29 0D 0A 0A 53 65 65 20 4D 53 format)...See MS 7FBE: 58 2D 65 6D 75 6C 61 74 6F 72 20 6D 61 6E 75 61 X-emulator manua 7FCE: 6C 20 66 6F 72 20 64 65 74 61 69 6C 73 0D 0A 43 l for details..C 7FDE: 68 6F 69 63 65 20 28 31 2D 39 29 20 00 10 40 00 hoice (1-9) ..@. 7FEE: 00 00 13 40 00 00 00 16 40 00 00 00 00 00 00 00 ...@....@....... 7FFE: 00 00 ..
+
+It seems also that reserved devicenames LST, NUL, AUX and CON are captured by the hooked routines.
+
+Translated excerpt from the original (dutch) documentation:
+
+
+
+
+
+High/Low level disk I/O
+
+The emulator can manage disks in two manners: in low level and high level mode.
+
+Normally said the emulator starts in high level disk I/O mode. In that case you can address all MS-DOS supported devices, even if they would normally not be supported on a real MSX (e.g. CD-ROMs, network drives, etc).
+
+
+
+Low level disk I/O mode is only necessary if you want to access disks which are not supported by MS-DOS. An example are 3.5 single-sided disks (360Kb capacity). This is available in low level disk I/O mode.
+
+For this is the /D option at startup of the CJS-emulator, or change the disk I/O mode option in the emulator menu.
+
+The CJS-Team has also added some specific CALL-Statements (therefore the CALL-Statement handler needed to be patched too. Entrypoint of the "dummy" handler is in 400AH):
+
+MSX emulator specific BASIC commands
+
+
+
+The MSX emulator has some extra BASIC commands that can be accessed from MSX-BASIC by using the CALL command (or the underscore _). Whenever a command uses parameters variables can be used too. Example:
+
+A$="\MSX\PROGS" _CHDIR(A$)
+
+The extra commands are: _LOW
+
+Turns low level disk I/O mode on (see "High/Low level disk I/O") _HIGH
+
+Turns high level disk I/O mode on (see "High/Low level disk I/O") _DRIVE("d:") or _CHDRV("d:")
+
+Change the current diskdrive in d:
+
+Examples:
+
+_DRIVE("B:") _CD("directory") or _CHDIR("directory")
+
+Changes the current directory to directory.
+
+Examples:
+
+_CD("\MSX\PROGS")
+
+_CD("..") _MD("directory") or _MKDIR("directory")
+
+Creates a subdirectory with name directory.
+
+Examples:
+
+_MD("\MSXPROGS") _RD("directory") or _RMDIR("directory")
+
+Removes an (empty) sub-directory named directory.
+
+Examples:
+
+_RD("\MSXPROGS")
+
+It is not possible to use directory-names in regular MSX-DISKBASIC commands. Example:
+
+LOAD "\MSX\APPS\MYPROG.BAS"
+
+is not allowed. Use in place of it firstly _ CD to change the current directory.
+
+_ CD, _ MD and _ RD are valid in high level disk I/O mode only.
+
+Note: The DOS based CJS-Emulator is no longer updated, also it's not possible to contact the authors for any documentation. Therefore I suggest it's ok to publish this cool implementation they have added to their emulation.
+
+
+
+
+
+MSX-DOS 2 (relase 1 or 2)
+
+The MSX DOS 2 cartridge contains 64KByte which is mapped. It can only be used in page 1. The mapper is 16KByte and can be modified through address 6000h.
+
+See also: MSX-DOS 2 (release 3)
+
+
+
+
+
+MSX-DOS 2 (release 3)
+
+The MSX DOS 2 cartridge contains 64KByte which is mapped. It can only be used in page 1. The mapper is 16KByte and can be modified through address 7FFEh.
+
+See also: MSX-DOS 2 (release 1 or 2)
+
+
+
+
+
+The interface contains 128kB FLASHROM; divided into 8 segments of 16kB
+
+each. Only one segment can be 'visible' at once. This segment is mapped into the address space #4000-#7FFF.
+
+
+
+The desired segment is selected by writing a byte to address #4104. This address is also used for enabling the 'IDE registers'. The meaning of the bits is as follows:
+
+
+
+bit 0: 0=IDE registers disabled 1=IDE registers enabled bit 1,2,3,4: reserved
+
+bit 5,6,7: FLASHROM segmentnumber (0..7)
+
+Remark: if address #4104 is read, normal FLASHROM contents of address #4104 is read. So address #4104 can be used to store normal programcode.
+
+
+
+When IDE registers are enabled, these registers are mapped into the address space from #7C00 till #7EFF. For more information on IDE registers and IDE specifications, please refer to other documents on the internet.
+
+
+
+There are 16 IDE registers, some of them aren't used yet. All of them are 8 bit, except the Data Register which is 16 bit.
+
+
+
+The 16 IDE registers are mapped to address space #7E00-#7E0F, but also to #7E10-#7E1f and also to #7E20-#7E2F, ... #7EF0-#7EFF. But it is recommended to use only addresses #7E00-#7E0F.
+
+
+
+Because the Data Register is 16 bit long, it is mapped in the following way: each word in the address space #7C00-#7DFF is mapped onto the Data Register. For example, if you want to write a word to the Data Register you can write it to address #7C00/1 or to address #7C02/3 or to address #7C04/5, etc. This has the following advantage: when reading or writing sectors from/to disk, 256 words (=512 bytes=the lenght of a sector) should be read from/written to the Data Register. Because the Data Register is mapped onto the whole address space from #7C00-#7DFF, it is possible to use a single LDIR instruction for the whole transfer operation.
+
+
+
+Examples:
+
+
+
+Reading from IDE device to memory: LD HL,#7C00
+
+LD DE,destination
+
+LD BC,512
+
+LDIR ;256 words are read from the Data Register
+
+Writing from memory to IDE device: LD HL,source
+
+LD DE,#7C00
+
+LD BC,512
+
+LDIR ;256 words are written from memory to the Data Register
+
+Important remark:
+
+When writing to the lowbyte of the Data Register, the byte is temporarily stored onto the interface. When the highbyte is written, this highbyte and the stored lowbyte are actually send to the IDE device(s). So the lowbyte should always be written first.
+
+
+
+The following is WRONG:
+
+LD A,highbyte
+
+LD (#7C01),A ;a random lowbyte and the highbyte are sent to the IDE
+
+LD A,lowbyte
+
+LD (#7C00),A
+
+
+
+It should be:
+
+LD A,lowbyte
+
+LD (#7C00),A ;temporarily storage of the lowbyte LD A,highbyte
+
+LD (#7C01),A ;complete word is sent to the IDE device(s)
+
+When reading from the Data Register it is as follows: first read the lowbyte; the complete word is read from the IDE device and the highbyte is temporarily stored into the interface.
+
+Now read the highbyte; the stored value is returned.
+
+
+
+So it it important to read the lowbyte first, followed by the highbyte and not otherwise.
+
+
+
+Z80 and R800 microprocessors do this fine when executing instructions like LD HL,(#7C00) etc.
+
+
+
+The IDE registers: brief overview: ----------------------------------
+
+The meaning of the registers depends on the IDE device type: normal ATA or ATAPI. The following goes for normal ATA:
+
+#7E00: r/w :Data Register, should not be used, use #7C00/1 instead #7E01: r :Error Register
+
+w :Feature Register #7E02: r/w :Sector Count Register #7E03: r/w :Sector Register #7E04: r/w :Cylinder Low Register #7E05: r/w :Cylinder High Register #7E06: r/w :
+
+bit 0..3: Head Register (0..15) bit 4 : 0=master registers selected 1=slave registers selected bit 5 : reserved
+
+bit 6 : 0=use CHS addressing 1=use LBA addressing bit 7 : reserved
+
+
+
+#7E07: r : Status Register
+
+Most important bits:
+
+bit 0: 1=Error Occurred
+
+bit 3: 1=Data Request
+
+bit 7: 1=Busy
+
+
+
+w : Command Execute Register
+
+#7E08: only used by special IDE devices, otherwise unconnected #7E09: only used by special IDE devices, otherwise unconnected #7E0A: only used by special IDE devices, otherwise unconnected #7E0B: only used by special IDE devices, otherwise unconnected #7E0C: only used by special IDE devices, otherwise unconnected #7E0D: only used by special IDE devices, otherwise unconnected #7E0E: r :Alternate Status Register w :Device Control Register #7E0F: only used by special IDE devices, otherwise unconnected
+
+Other remarks: IDE devices are capable of generating an interrupt. Nevertheless this feature isn't supported by the Sunrise IDE interface. All status checking should be performed by polling the IDE Status Registers.
+
+When you reset your MSX, the IDE devices on the cable are *not* reset.
+
+The 'official' name for IDE (Integrated Drive Electronics) is ATA (AT Attachment) So if you want to look on the net for some documents, search for ATA. I used some 'working drafts' I've found on a site from WesternDigital. (don't remember the URL)
+
+There are several ATA specifications: ATA-1, ATA-2 and ATA-3. I believe they are all 'upwards compatible'.
+
+Because ATA specifications are rather limited, there is also an extended ATA specification which allows you to send more complex commando packets to your IDE devices: ATAPI (AT Attachment Packet Interface). ATAPI is used for CDROM devices, IDE ZIP disks, LS120 Optical floppy disks and other recent storage devices. Documents can be found on the net.
+
+When writing to registers with 'reserved' bits, you should write a zero-bit to these 'reserved' bits (e.g. #7E06)
+
+
+
+
+
+* * *
+
+
+
+FlashROM: The Sunrise IDE interface contains it's BIOS within a FlashROM. This enables later update of the ROM-software with never versions (distributed over the Internet, ...).
+
+
+
+Lex Lechz: the utility IDEFLOAD.COM can be used to flash a new BIOS ROM (128KB or 512KB FlashROM are supported by this tool). The MSX-DOS based flashing utility requires the ROM to be present in page 1 (#4000-#7FFF) and page 2 (#8000-#BFFF).
+
+The following documentation was extracted by reverse-engineering the IDEFLOAD utility, but not verified. Therefore some smaller (or larger) bugs may exist in this information!
+
+
+
+IDEFLOAD.COM uses the undocumented adresses #4001, #7FFF, #9555 and #AAAA for re- programming the flashROM. These adresses seem to be used for FlashROM size recognition, erasing and buring new data.
+
+
+
+Re-programming can be performed with the following command-sequence: write #55 to #9555 in segment 4 (#80 written to #4104)
+
+write #AA to #AAAA in segment 0 (#00 written to #4104)
+
+write a command to #9555 in segment 4 (#80 written to #4104)
+
+
+
+Please note that every command requires the full sequence of bytes (#55, #AA, #??) to perform the requested flashROM operation! Values for command are as following: 01 erase contents of the flashROM. For safety the command-sequence need to be repeated with value 08.
+
+Wait: because this is the 1st byte of a 2-byte command no wait is necessary.
+
+05 enable writing of a single byte into the flashROM memory. Writeable address is #8000-#BFFF. The segment is selected in #4104.
+
+Wait: after writing the byte into the flashROM a wait must be performed.
+
+08 erase the contents of the flashROM (all segments). The command-sequence with value 01 has to be processed first.
+
+Wait: after starting the erase-process a wait must be performed.
+
+09 determines the size of the flashROM, which can be retrieved from #4001. Value #04 indicates a 128K flashROM, other values are assumed to be 512K (at least by the IDEFLOAD-utility).
+
+Wait: not necessary, value can be retrieved immediately.
+
+
+
+Waiting for completition: once the flashROM modification has been started the calling program need to wait until the changes are finished. This must be done by reading the statusregister on #7FFF. Bit 1 changes its value after the requested operation is completed. Reading value for the 1st time after the command-start returns the old value of this status-bit. Subsequent reads are returning the same bit (set or reset) until the flashROM modification is finished.
+
+
+
+
+
+The SCCPLUS.ROM file is a dummy file, that enables to load the SCC+ cartridge and it's RAM into any Slot. It it also intended to support auto-detection for MSX-emulations.
+
+
+
+The layout of the image is as following:
+
+- Only the first 16 bytes are checked
+
+- 4000 => 41 42 indicates a valid MSX-cartridge - 4002 => 10 40 module resides is in page 1 (entry at 4010) - 4004 => 00 00 00 00 00 00 00 00 00 00 00 00 (ROM header) - 4010 => C9 (RET)
+
+ROM code returns immediately
+
+
+
+- 4011 => "SCC+ dummy" (case sensitive) - 401B => 00 00 00 00 (reserved)
+
+- 401F => 03 = 128KB RAM (bit-mask)
+
+(values 01 and 02 are currently not supported) 01 = 64KB RAM as in original SCC+
+
+02 = 64KB RAM as in SD Snatcher cartridge - 4020 => 00 ... (entire remaining ROM should be filled with 0)
+
+The image is handled as following:
+
+- The header indicates a valid ROM for every emulation - The header "SCC+ dummy" indicates that it's an "SCC+ memory"
+
+- The emulation loads the image and maps it as described in the binary flags (128KB must be specified for RuMSX) - After the emulation has recognized the ROM image (at least) contents from 0x0000 to 0x001F are cleared to keep a clean non-ROM image in memory Note: number of cleared bytes is not specified yet and may be changed in future versions. This depends on later enhancements of this "SCC+ dummy" specification!
+
+Note on the entrypoint at &H4010: this is normally not required, but defined to enable emulations to find a proper memory-location for the SCC+ cartridge. If all addresses would be zeroed out emulations might incorrectly assume &H0000 as starting-address!
+
+
+
+
+
+MSXView
+
+MSXView and other programs within the same ROM are part of the firmware in MSX Turbo-R computers (A1-GT, A1-ST). Regardless the MSXView itself is a standard, where only different implementation may apply.
+
+
+
+
+
+MSX character set
+
+
+
+
+The MSX character set depends on the used locale and may look like following:
+
+Japanese
+
+International
+
+Korean
+
+Arabic
+
+Cyrillic
+
+
+
+
+

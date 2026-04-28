@@ -103,7 +103,6 @@ func (r *lineNumbersRenderer) gutterWidth() float32 {
 
 func (r *lineNumbersRenderer) Layout(size fyne.Size) {
 	lh := r.lh()
-	ts := theme.TextSize()
 
 	// Background fills entire gutter
 	r.bg.Move(fyne.NewPos(0, 0))
@@ -122,6 +121,12 @@ func (r *lineNumbersRenderer) Layout(size fyne.Size) {
 	} else {
 		r.cursorBg.Hide()
 	}
+
+	r.updateRows(size, lh)
+}
+
+func (r *lineNumbersRenderer) updateRows(size fyne.Size, lh float32) {
+	ts := theme.TextSize()
 
 	// Line number labels
 	for i, t := range r.texts {
@@ -156,11 +161,20 @@ func (r *lineNumbersRenderer) MinSize() fyne.Size {
 }
 
 func (r *lineNumbersRenderer) Refresh() {
-	ts := theme.TextSize()
-	for _, t := range r.texts {
-		t.TextSize = ts
+	sz := r.w.Size()
+	if sz.Width <= 0 || sz.Height <= 0 {
+		sz = r.MinSize()
 	}
-	canvas.Refresh(r.w)
+	// Recompute row content on every widget refresh so text/count updates are visible
+	// even when layout size does not change.
+	r.Layout(sz)
+
+	r.bg.Refresh()
+	r.sep.Refresh()
+	r.cursorBg.Refresh()
+	for _, t := range r.texts {
+		t.Refresh()
+	}
 }
 
 func (r *lineNumbersRenderer) Destroy() {}

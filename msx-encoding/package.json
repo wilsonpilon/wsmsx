@@ -1,0 +1,132 @@
+{
+  "name": "msx-text-encoding",
+  "displayName": "MSX Text Encoding",
+  "description": "Adds MSX legacy text encoding support (International, Brazilian, Arabic, Japanese, Russian) to VS Code",
+  "version": "0.1.0",
+  "publisher": "nataliapc",
+  "license": "MIT",
+  "icon": "assets/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nataliapc/vscode-msx-text-encoding"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "msx",
+    "encoding",
+    "charset",
+    "legacy",
+    "retro"
+  ],
+  "activationEvents": [
+    "onFileSystem:msxenc"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "msx-encoding.openWithEncoding",
+        "title": "Open File with MSX Encoding",
+        "category": "MSX Encoding"
+      },
+      {
+        "command": "msx-encoding.reopenWithEncoding",
+        "title": "Reopen Active File with MSX Encoding",
+        "category": "MSX Encoding"
+      },
+      {
+        "command": "msx-encoding.convertToUtf8",
+        "title": "Convert MSX → UTF-8",
+        "category": "MSX Encoding"
+      },
+      {
+        "command": "msx-encoding.convertFromUtf8",
+        "title": "Convert UTF-8 → MSX Encoding",
+        "category": "MSX Encoding"
+      },
+      {
+        "command": "msx-encoding.showCharacterMap",
+        "title": "Show MSX Character Map",
+        "category": "MSX Encoding"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "msx-encoding.openWithEncoding",
+          "group": "navigation@100"
+        },
+        {
+          "command": "msx-encoding.convertToUtf8",
+          "group": "navigation@101"
+        },
+        {
+          "command": "msx-encoding.convertFromUtf8",
+          "group": "navigation@102"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "msx-encoding.reopenWithEncoding",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "msx-encoding.showCharacterMap",
+        "key": "ctrl+shift+m",
+        "mac": "cmd+shift+m"
+      }
+    ],
+    "configuration": {
+      "title": "MSX Text Encoding",
+      "properties": {
+        "msxEncoding.defaultCharset": {
+          "type": "string",
+          "default": "msx-international",
+          "enum": [
+            "msx-international",
+            "msx-japanese",
+            "msx-brazilian-br",
+            "msx-brazilian-bg",
+            "msx-brazilian-bh",
+            "msx-arabic-ar",
+            "msx-arabic-ae",
+            "msx-russian"
+          ],
+          "enumDescriptions": [
+            "MSX International (default)",
+            "MSX Japanese",
+            "MSX Brazilian (Gradiente Expert DDPlus / Sharp Hotbit 1.2)",
+            "MSX Brazilian (Gradiente Expert XP-800)",
+            "MSX Brazilian (Sharp Hotbit 1.1)",
+            "MSX Arabic (Bawareth Perfect / Yamaha AX500)",
+            "MSX Arabic (Al Alamiah AX-170)",
+            "MSX Russian"
+          ],
+          "description": "Default MSX character set to use when opening files"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "node esbuild.js --production",
+    "watch": "node esbuild.js --watch",
+    "pretest": "npm run compile",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.75.0",
+    "@types/node": "^18.0.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.3.0"
+  }
+}
