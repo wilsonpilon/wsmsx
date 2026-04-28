@@ -2,8 +2,11 @@ package ui
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"image/color"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,6 +27,7 @@ import (
 	"ws7/internal/config"
 	"ws7/internal/input"
 	"ws7/internal/store/sqlite"
+	"ws7/internal/syntax"
 	"ws7/internal/version"
 )
 
@@ -31,14 +35,48 @@ var errSaveCanceled = errors.New("save canceled")
 
 const ctrlKTimeout = 2 * time.Second
 
+const defaultMSXBasicASCIIExt = ".asc"
+const settingSyntaxThemeKey = "syntax_theme"
+const settingSyntaxSplitViewKey = "syntax_split_view"
+const settingEditorThemeKey = "editor_theme"
+const settingOpenMSXExeKey = "tool_openmsx_exe"
+const settingMSXBas2RomExeKey = "tool_msxbas2rom_exe"
+const settingBasicDignifiedExeKey = "tool_basic_dignified_exe"
+const settingMSXEncodingExeKey = "tool_msx_encoding_exe"
+const settingCustomKeywordColorKey = "syntax_custom_keyword"
+const settingCustomFunctionColorKey = "syntax_custom_function"
+const settingCustomStringColorKey = "syntax_custom_string"
+const settingCustomNumberColorKey = "syntax_custom_number"
+const settingCustomCommentColorKey = "syntax_custom_comment"
+const settingCustomLiteralColorKey = "syntax_custom_literal"
+
+var msxSourceExtensions = []string{defaultMSXBasicASCIIExt, ".amx", ".bas", ".ldr", ".txt"}
+
+type newFileType struct {
+	ID         string
+	Label      string
+	DefaultExt string
+	DialectID  string
+	Enabled    bool
+}
+
+var allNewFileTypes = []newFileType{
+	{ID: "msx-basic-ascii", Label: "MSX BASIC ASCII (*.asc)", DefaultExt: ".asc", DialectID: syntax.DialectMSXBasicOfficial, Enabled: true},
+	{ID: "msx-basic-amx", Label: "MSX BASIC Tokenized/AMX (*.amx)", DefaultExt: ".amx", DialectID: syntax.DialectMSXBasicOfficial, Enabled: true},
+	{ID: "assembly", Label: "Assembly (*.asm)", DefaultExt: ".asm", DialectID: syntax.DialectMSXBasicOfficial, Enabled: false},
+	{ID: "c", Label: "C (*.c)", DefaultExt: ".c", DialectID: syntax.DialectMSXBasicOfficial, Enabled: false},
+}
+
 type editorTab struct {
-	item     *container.TabItem
-	entry    *cursorEntry
-	ruler    *rulerWidget
-	lineNums *lineNumbersWidget
-	status   *widget.Label
-	blockTag *widget.Label
-	clipTag  *widget.Label
+	item      *container.TabItem
+	entry     *cursorEntry
+	syntaxEntry *syntaxHighlightEntry // extended entry with syntax highlighting
+	ruler     *rulerWidget
+	lineNums  *lineNumbersWidget
+	status    *widget.Label
+	blockTag  *widget.Label
+	clipTag   *widget.Label
+	syntaxTag *widget.Label
 
 	name      string
 	filePath  string
@@ -47,6 +85,8 @@ type editorTab struct {
 	cursorCol int
 	topLine   int
 
+	syntaxDialect string
+
 	blockBegin    int
 	blockEnd      int
 	hasBlockBegin bool
@@ -54,17 +94,21 @@ type editorTab struct {
 }
 
 type editorUI struct {
-	fyneApp  fyne.App
-	window   fyne.Window
-	entry    *cursorEntry
-	ruler    *rulerWidget
-	lineNums *lineNumbersWidget
-	status   *widget.Label
-	blockTag *widget.Label
-	clipTag  *widget.Label
-	resolver *input.Resolver
-	store    *sqlite.Store
-	browser  *fileBrowser
+	fyneApp   fyne.App
+	window    fyne.Window
+	allowWindowClose bool
+	confirmDialog    func(title, message string, onResult func(bool), parent fyne.Window)
+	closeWindow      func()
+	entry     *cursorEntry
+	ruler     *rulerWidget
+	lineNums  *lineNumbersWidget
+	status    *widget.Label
+	blockTag  *widget.Label
+	clipTag   *widget.Label
+	syntaxTag *widget.Label
+	resolver  *input.Resolver
+	store     *sqlite.Store
+	browser   *fileBrowser
 
 	filePath        string
 	dirty           bool
@@ -78,7 +122,11 @@ type editorUI struct {
 	tabs         *container.DocTabs
 	tabState     map[*container.TabItem]*editorTab
 	activeTab    *editorTab
-	untitledSeed int
+	untitledSeed map[string]int
+	syntaxThemeID string
+	syntaxSplitView bool
+	editorThemeID string
+	customSyntaxPalette syntaxPalette
 
 	internalBlockClipboard string
 }
@@ -90,7 +138,7 @@ func Run() error {
 		return err
 	}
 	fontPath := filepath.Join(cwd, "res", "SourceCodePro-Bold.ttf")
-	if th, thErr := newSourceCodeProTheme(fontPath); thErr == nil {
+	if th, thErr := newSourceCodeProTheme(fontPath, defaultSyntaxThemeID, defaultCustomSyntaxPalette(), defaultEditorThemeID); thErr == nil {
 		a.Settings().SetTheme(th)
 	}
 
@@ -105,11 +153,37 @@ func Run() error {
 	defer func() { _ = store.Close() }()
 
 	ui := &editorUI{
-		fyneApp:  a,
-		window:   a.NewWindow(version.Full() + " - Editor"),
-		resolver: input.NewResolver(),
-		store:    store,
-		tabState: map[*container.TabItem]*editorTab{},
+		fyneApp:           a,
+		window:            a.NewWindow(version.Full() + " - Editor"),
+		resolver:          input.NewResolver(),
+		store:             store,
+		tabState:          map[*container.TabItem]*editorTab{},
+		syntaxThemeID:     defaultSyntaxThemeID,
+		editorThemeID:     defaultEditorThemeID,
+		customSyntaxPalette: defaultCustomSyntaxPalette(),
+	}
+	ui.window.SetCloseIntercept(func() {
+		if ui.allowWindowClose {
+			ui.window.SetCloseIntercept(nil)
+			ui.window.Close()
+			return
+		}
+		ui.requestAppExit()
+	})
+
+	ui.loadCustomSyntaxPalette(context.Background())
+
+	if savedThemeID, _ := store.GetSetting(context.Background(), settingSyntaxThemeKey); savedThemeID != "" {
+		ui.syntaxThemeID = normalizeSyntaxThemeID(savedThemeID)
+	}
+	if savedEditorThemeID, _ := store.GetSetting(context.Background(), settingEditorThemeKey); savedEditorThemeID != "" {
+		ui.editorThemeID = normalizeEditorThemeID(savedEditorThemeID)
+	}
+	if savedSplit, _ := store.GetSetting(context.Background(), settingSyntaxSplitViewKey); savedSplit != "" {
+		ui.syntaxSplitView = savedSplit == "1" || strings.EqualFold(savedSplit, "true")
+	}
+	if th, thErr := newSourceCodeProTheme(fontPath, ui.syntaxThemeID, ui.customSyntaxPalette, ui.editorThemeID); thErr == nil {
+		a.Settings().SetTheme(th)
 	}
 
 	// Resolve start directory: last used or cwd
@@ -156,6 +230,7 @@ func (e *editorUI) ensureTabs() {
 		e.status = tab.status
 		e.blockTag = tab.blockTag
 		e.clipTag = tab.clipTag
+		e.syntaxTag = tab.syntaxTag
 		e.filePath = tab.filePath
 		e.dirty = tab.dirty
 		e.cursorRow = tab.cursorRow
@@ -163,6 +238,7 @@ func (e *editorUI) ensureTabs() {
 		e.topLine = tab.topLine
 		e.updateBlockIndicator()
 		e.updateInternalClipboardIndicator()
+		e.updateSyntaxIndicator()
 		e.updateTitle()
 		e.syncLineNumbers()
 	}
@@ -196,8 +272,13 @@ func (e *editorUI) findTabByPath(path string) *editorTab {
 func (e *editorUI) bindTabEntry(tab *editorTab) {
 	tab.entry.Wrapping = fyne.TextWrapOff
 	tab.entry.SetMinRowsVisible(30)
-	tab.entry.OnChanged = func(_ string) {
+	prevOnChanged := tab.entry.OnChanged
+	tab.entry.OnChanged = func(text string) {
+		if prevOnChanged != nil {
+			prevOnChanged(text)
+		}
 		tab.dirty = true
+		e.warmupSyntaxForTab(tab)
 		if e.activeTab == tab {
 			e.dirty = true
 			e.updateTitle()
@@ -245,33 +326,179 @@ func (e *editorUI) bindTabEntry(tab *editorTab) {
 }
 
 func (e *editorUI) nextUntitledName() string {
-	e.untitledSeed++
-	if e.untitledSeed == 1 {
-		return "untitled"
-	}
-	return fmt.Sprintf("untitled-%d", e.untitledSeed)
+	return e.nextUntitledNameForExt(defaultMSXBasicASCIIExt)
 }
 
-func (e *editorUI) newEditorTab() *editorTab {
-	name := e.nextUntitledName()
+func enabledNewFileTypes() []newFileType {
+	types := make([]newFileType, 0, len(allNewFileTypes))
+	for _, fileType := range allNewFileTypes {
+		if fileType.Enabled {
+			types = append(types, fileType)
+		}
+	}
+	return types
+}
+
+func defaultNewFileType() newFileType {
+	if enabled := enabledNewFileTypes(); len(enabled) > 0 {
+		return enabled[0]
+	}
+	return newFileType{ID: "msx-basic-ascii", Label: "MSX BASIC ASCII (*.asc)", DefaultExt: defaultMSXBasicASCIIExt, DialectID: syntax.DialectMSXBasicOfficial, Enabled: true}
+}
+
+func normalizeFileExt(ext string) string {
+	ext = strings.TrimSpace(strings.ToLower(ext))
+	if ext == "" {
+		return defaultMSXBasicASCIIExt
+	}
+	if !strings.HasPrefix(ext, ".") {
+		ext = "." + ext
+	}
+	return ext
+}
+
+func (e *editorUI) nextUntitledNameForExt(ext string) string {
+	ext = normalizeFileExt(ext)
+	if e.untitledSeed == nil {
+		e.untitledSeed = map[string]int{}
+	}
+	e.untitledSeed[ext]++
+	if e.untitledSeed[ext] == 1 {
+		return "untitled" + ext
+	}
+	return fmt.Sprintf("untitled-%d%s", e.untitledSeed[ext], ext)
+}
+
+func displayDocumentName(filePath, fallback string) string {
+	if filePath != "" {
+		return filepath.Base(filePath)
+	}
+	if fallback != "" {
+		return fallback
+	}
+	return "[New]"
+}
+
+func msxSourceFileFilter() storage.FileFilter {
+	return storage.NewExtensionFileFilter(msxSourceExtensions)
+}
+
+func normalizeMSXSourceFileName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" || name == "[New]" {
+		return "untitled" + defaultMSXBasicASCIIExt
+	}
+	if ext := strings.ToLower(filepath.Ext(name)); ext != "" {
+		for _, allowed := range msxSourceExtensions {
+			if ext == allowed {
+				return name
+			}
+		}
+		return name
+	}
+	return name + defaultMSXBasicASCIIExt
+}
+
+func suggestMSXSourceFileName(filePath, fallback string) string {
+	return normalizeMSXSourceFileName(displayDocumentName(filePath, fallback))
+}
+
+func syntaxLabelByID(dialectID string) string {
+	for _, opt := range syntax.DialectOptions() {
+		if opt.ID == dialectID {
+			return opt.Label
+		}
+	}
+	return syntax.DefaultDialect().Label
+}
+
+func syntaxIndicatorText(dialectID string) string {
+	if strings.TrimSpace(dialectID) == "" {
+		dialectID = syntax.DefaultDialect().ID
+	}
+	return "[SYN:" + syntaxLabelByID(dialectID) + "]"
+}
+
+func (e *editorUI) updateSyntaxIndicator() {
+	if e.activeTab == nil || e.activeTab.syntaxTag == nil {
+		return
+	}
+	e.activeTab.syntaxTag.SetText(syntaxIndicatorText(e.activeTab.syntaxDialect))
+}
+
+func (e *editorUI) warmupSyntaxForTab(tab *editorTab) {
+	if tab == nil || tab.entry == nil {
+		return
+	}
+	dialectID := tab.syntaxDialect
+	if strings.TrimSpace(dialectID) == "" {
+		dialectID = syntax.DefaultDialect().ID
+		tab.syntaxDialect = dialectID
+	}
+
+	// Keep inline highlighting in sync with current text/dialect.
+	if tab.syntaxEntry != nil {
+		tab.syntaxEntry.SetDialect(dialectID)
+		tab.syntaxEntry.updateHighlights()
+		tab.syntaxEntry.Refresh()
+	}
+
+}
+
+func (e *editorUI) tabEditorContent(tab *editorTab) fyne.CanvasObject {
+	if tab == nil {
+		return widget.NewLabel("")
+	}
+	statusBar := container.NewBorder(nil, nil, nil, container.NewHBox(tab.blockTag, tab.clipTag, tab.syntaxTag), tab.status)
+
+	if e.syntaxSplitView && tab.syntaxEntry != nil {
+		preview := container.NewScroll(tab.syntaxEntry.richText)
+		split := container.NewHSplit(tab.entry, preview)
+		split.Offset = 0.55
+		return container.NewBorder(tab.ruler, statusBar, tab.lineNums, nil, split)
+	}
+
+	// Use syntaxEntry (with syntax highlighting) if available, otherwise use plain entry
+	displayEntry := fyne.CanvasObject(tab.entry)
+	if tab.syntaxEntry != nil {
+		displayEntry = tab.syntaxEntry
+	}
+
+	return container.NewBorder(tab.ruler, statusBar, tab.lineNums, nil, displayEntry)
+}
+
+func (e *editorUI) newEditorTab(fileType newFileType) *editorTab {
+	name := e.nextUntitledNameForExt(fileType.DefaultExt)
+	dialectID := fileType.DialectID
+	if strings.TrimSpace(dialectID) == "" {
+		dialectID = syntax.DefaultDialect().ID
+	}
+	syntaxEntry := newSyntaxHighlightEntry(dialectID)
+	// Get the underlying cursorEntry from syntaxEntry
+	baseEntry := syntaxEntry.entry
+	
 	tab := &editorTab{
-		entry:    newCursorEntry(),
-		ruler:    newRulerWidget(),
-		lineNums: newLineNumbersWidget(),
-		status:   widget.NewLabel(""),
-		blockTag: widget.NewLabel(""),
-		clipTag:  widget.NewLabel(""),
-		name:     name,
+		entry:         baseEntry,
+		syntaxEntry:   syntaxEntry,
+		ruler:         newRulerWidget(),
+		lineNums:      newLineNumbersWidget(),
+		status:        widget.NewLabel(""),
+		blockTag:      widget.NewLabel(""),
+		clipTag:       widget.NewLabel(""),
+		syntaxTag:     widget.NewLabel(""),
+		name:          name,
+		syntaxDialect: dialectID,
 	}
 	tab.blockTag.TextStyle = fyne.TextStyle{Bold: true}
 	tab.clipTag.TextStyle = fyne.TextStyle{Bold: true}
-	rightIndicators := container.NewHBox(tab.blockTag, tab.clipTag)
-	statusBar := container.NewBorder(nil, nil, nil, rightIndicators, tab.status)
+	tab.syntaxTag.TextStyle = fyne.TextStyle{Bold: true}
 	e.bindTabEntry(tab)
-	tab.item = container.NewTabItem(name, container.NewBorder(tab.ruler, statusBar, tab.lineNums, nil, tab.entry))
+	tab.item = container.NewTabItem(name, e.tabEditorContent(tab))
 	e.tabState[tab.item] = tab
 	e.tabs.Append(tab.item)
 	e.tabs.Select(tab.item)
+	e.warmupSyntaxForTab(tab)
+	e.updateSyntaxIndicator()
 	e.refreshTabTitle(tab)
 	return tab
 }
@@ -379,12 +606,20 @@ func (e *editorUI) showBrowser() {
 }
 
 func (e *editorUI) showEditor(path string) {
+	e.showEditorForType(path, nil)
+}
+
+func (e *editorUI) showEditorForType(path string, initialType *newFileType) {
 	e.inEditor = true
 	e.resetPrefixState()
 	e.window.SetMainMenu(e.makeEditorMenu())
 	e.ensureTabs()
 	if len(e.tabs.Items) == 0 {
-		e.newEditorTab()
+		fileType := defaultNewFileType()
+		if initialType != nil {
+			fileType = *initialType
+		}
+		e.newEditorTab(fileType)
 	}
 	e.window.SetContent(e.tabs)
 	if path == "" {
@@ -414,6 +649,8 @@ func (e *editorUI) showEditor(path string) {
 		e.activeTab.cursorRow = 0
 		e.activeTab.cursorCol = 0
 		e.activeTab.topLine = 0
+		e.warmupSyntaxForTab(e.activeTab)
+		e.updateSyntaxIndicator()
 		e.refreshTabTitle(e.activeTab)
 	}
 	_ = e.store.TouchRecentFile(context.Background(), path)
@@ -444,11 +681,51 @@ func (e *editorUI) openInEditor(path string) {
 // ── New file ─────────────────────────────────────────────────────────────────
 
 func (e *editorUI) newFile() {
-	if !e.inEditor {
-		e.showEditor("")
+	e.promptNewFileType(func(fileType newFileType) {
+		e.newFileWithType(fileType)
+	})
+}
+
+func (e *editorUI) promptNewFileType(onCreate func(newFileType)) {
+	if onCreate == nil {
 		return
 	}
-	e.newEditorTab()
+	options := enabledNewFileTypes()
+	if len(options) == 0 {
+		onCreate(defaultNewFileType())
+		return
+	}
+	if e.window == nil {
+		onCreate(defaultNewFileType())
+		return
+	}
+	labels := make([]string, 0, len(options))
+	for _, option := range options {
+		labels = append(labels, option.Label)
+	}
+	selectType := widget.NewSelect(labels, nil)
+	selectType.SetSelected(labels[0])
+	dialog.ShowForm("New File", "Create", "Cancel", []*widget.FormItem{
+		widget.NewFormItem("Type", selectType),
+	}, func(ok bool) {
+		if !ok {
+			return
+		}
+		idx := selectType.SelectedIndex()
+		if idx < 0 || idx >= len(options) {
+			onCreate(options[0])
+			return
+		}
+		onCreate(options[idx])
+	}, e.window)
+}
+
+func (e *editorUI) newFileWithType(fileType newFileType) {
+	if !e.inEditor {
+		e.showEditorForType("", &fileType)
+		return
+	}
+	e.newEditorTab(fileType)
 	e.showEditor("")
 }
 
@@ -745,7 +1022,7 @@ func (e *editorUI) execute(cmd input.Command) {
 		e.status.SetText("Ctrl+U: undo")
 	case input.CmdNewTab:
 		e.newFile()
-		e.status.SetText("Ctrl+N: new untitled tab")
+		e.status.SetText("Ctrl+N: new file")
 	case input.CmdScrollUp:
 		e.status.SetText("Ctrl+W: scroll up (next block)")
 	case input.CmdInsertLine:
@@ -897,7 +1174,7 @@ func (e *editorUI) execute(cmd input.Command) {
 
 func (e *editorUI) makeOpeningFileMenu() *fyne.Menu {
 	fileMenu := fyne.NewMenu("File",
-		fyne.NewMenuItem("New                       S", func() { e.newFile() }),
+		fyne.NewMenuItem("New...                    S", func() { e.newFile() }),
 		fyne.NewMenuItem("Open Document...          D", func() { e.cmdOpenDocument() }),
 		fyne.NewMenuItem("Open Nondocument...       N", func() { e.cmdOpenNondocument() }),
 		fyne.NewMenuItemSeparator(),
@@ -913,6 +1190,7 @@ func (e *editorUI) makeOpeningFileMenu() *fyne.Menu {
 		fyne.NewMenuItem("Change Filename Display", func() { e.cmdChangeFilenameDisplay() }),
 		fyne.NewMenuItem("Run CMD Command...        R", func() { e.cmdRunCMDCommand() }),
 		fyne.NewMenuItem("Status...                 ?", func() { e.cmdStatus() }),
+		fyne.NewMenuItem("Copy Version+Build", func() { e.cmdCopyVersionBuild() }),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Exit MSXStar              X", func() { e.cmdExitMSXStar() }),
 	)
@@ -921,7 +1199,7 @@ func (e *editorUI) makeOpeningFileMenu() *fyne.Menu {
 
 func (e *editorUI) makeEditorFileMenu() *fyne.Menu {
 	return fyne.NewMenu("File",
-		fyne.NewMenuItem("New                      Ctrl+N", func() { e.newFile() }),
+		fyne.NewMenuItem("New...                   Ctrl+N", func() { e.newFile() }),
 		fyne.NewMenuItem("Open/Switch              Ctrl+O,K", func() { e.cmdOpenSwitch() }),
 		fyne.NewMenuItem("Close                    Ctrl+W", func() { e.cmdClose() }),
 		fyne.NewMenuItem("Save                     Ctrl+K,S", func() {
@@ -971,6 +1249,7 @@ func (e *editorUI) makeEditorFileMenu() *fyne.Menu {
 		fyne.NewMenuItem("Change Drive/Directory... Ctrl+K,L", func() { e.cmdChangeDirectory() }),
 		fyne.NewMenuItem("Run PS Command...        Ctrl+K,F", func() { e.cmdRunPSCommand() }),
 		fyne.NewMenuItem("Status                   Ctrl+O,?", func() { e.cmdStatus() }),
+		fyne.NewMenuItem("Copy Version+Build", func() { e.cmdCopyVersionBuild() }),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Exit MSXide              Ctrl+K,Q,X", func() { e.cmdExitMSXide() }),
 	)
@@ -989,7 +1268,11 @@ func (e *editorUI) makeOpeningMenu() *fyne.MainMenu {
 		fyne.NewMenuItem("Rename...                  ME", func() { e.cmdNotImplemented("Macro Rename") }),
 	)
 
-	utilitiesMenu := fyne.NewMenu("Utilities", macrosItem)
+	utilitiesMenu := fyne.NewMenu("Utilities",
+		macrosItem,
+		fyne.NewMenuItemSeparator(),
+		fyne.NewMenuItem("Configure...", func() { e.cmdConfigure() }),
+	)
 
 	additionalMenu := fyne.NewMenu("Additional",
 		fyne.NewMenuItem("Character Editor...        AC", func() { e.cmdNotImplemented("Character Editor") }),
@@ -1012,17 +1295,108 @@ func (e *editorUI) makeOpeningMenu() *fyne.MainMenu {
 func (e *editorUI) makeEditorMenu() *fyne.MainMenu {
 	fileMenu := e.makeEditorFileMenu()
 	editMenu := e.makeEditorEditMenu()
+	syntaxItem := fyne.NewMenuItem("Syntax", nil)
+	syntaxItem.ChildMenu = fyne.NewMenu("", e.makeSyntaxMenuItems()...)
+	themeItem := fyne.NewMenuItem("Syntax Theme", nil)
+	themeItem.ChildMenu = fyne.NewMenu("", e.makeSyntaxThemeMenuItems()...)
+	splitLabel := "Show Split Syntax Preview"
+	if e.syntaxSplitView {
+		splitLabel = "Hide Split Syntax Preview"
+	}
+	splitItem := fyne.NewMenuItem(splitLabel, func() {
+		e.cmdToggleSyntaxSplitView()
+	})
 	viewMenu := fyne.NewMenu("View",
-		fyne.NewMenuItem("(none)", nil),
+		syntaxItem,
+		themeItem,
+		fyne.NewMenuItemSeparator(),
+		splitItem,
 	)
 	insertMenu := fyne.NewMenu("Insert",
 		fyne.NewMenuItem("(none)", nil),
 	)
 	utilitiesMenu := fyne.NewMenu("Utilities",
-		fyne.NewMenuItem("(none)", nil),
+		fyne.NewMenuItem("Configure...", func() { e.cmdConfigure() }),
 	)
 
 	return fyne.NewMainMenu(fileMenu, editMenu, viewMenu, insertMenu, utilitiesMenu)
+}
+
+func (e *editorUI) makeSyntaxMenuItems() []*fyne.MenuItem {
+	options := syntax.DialectOptions()
+	items := make([]*fyne.MenuItem, 0, len(options))
+	for _, opt := range options {
+		option := opt
+		label := option.Label
+		if !option.Enabled {
+			label += " [NI]"
+		}
+		items = append(items, fyne.NewMenuItem(label, func() {
+			e.cmdSetSyntaxDialect(option.ID)
+		}))
+	}
+	return items
+}
+
+func (e *editorUI) makeSyntaxThemeMenuItems() []*fyne.MenuItem {
+	current := normalizeSyntaxThemeID(e.syntaxThemeID)
+	items := make([]*fyne.MenuItem, 0, len(syntaxThemeOptions)+2)
+	for _, opt := range syntaxThemeOptions {
+		option := opt
+		label := option.Label
+		if option.ID == current {
+			label = "* " + label
+		}
+		items = append(items, fyne.NewMenuItem(label, func() {
+			e.cmdSetSyntaxTheme(option.ID)
+		}))
+	}
+	items = append(items, fyne.NewMenuItemSeparator())
+	items = append(items, fyne.NewMenuItem("Edit Custom Theme...", func() {
+		e.cmdEditCustomSyntaxTheme()
+	}))
+	return items
+}
+
+func (e *editorUI) cmdToggleSyntaxSplitView() {
+	e.setSyntaxSplitView(!e.syntaxSplitView)
+}
+
+func (e *editorUI) setSyntaxSplitView(enabled bool) {
+	if e.syntaxSplitView == enabled {
+		return
+	}
+	e.syntaxSplitView = enabled
+
+	for _, tab := range e.tabState {
+		if tab == nil || tab.item == nil {
+			continue
+		}
+		tab.item.Content = e.tabEditorContent(tab)
+	}
+	if e.tabs != nil {
+		e.tabs.Refresh()
+	}
+	if e.window != nil && e.inEditor {
+		e.window.SetMainMenu(e.makeEditorMenu())
+	}
+	if e.entry != nil && e.window != nil {
+		e.window.Canvas().Focus(e.entry)
+	}
+	if e.status != nil {
+		if enabled {
+			e.status.SetText("View: Split Syntax Preview")
+		} else {
+			e.status.SetText("View: Inline Syntax Highlight")
+		}
+	}
+	if e.store != nil {
+		value := "0"
+		if enabled {
+			value = "1"
+		}
+		_ = e.store.SetSetting(context.Background(), settingSyntaxSplitViewKey, value)
+	}
 }
 
 func (e *editorUI) makeEditorEditMenu() *fyne.Menu {
@@ -1174,6 +1548,441 @@ func (e *editorUI) cmdOpenHelpOutline() {
 	e.openMarkdownHelpDoc("OUTLINE.md", "OUTLINE")
 }
 
+func (e *editorUI) cmdSetSyntaxDialect(dialectID string) {
+	if e.activeTab == nil {
+		return
+	}
+
+	for _, opt := range syntax.DialectOptions() {
+		if opt.ID != dialectID {
+			continue
+		}
+		if !opt.Enabled {
+			e.cmdNotImplemented(opt.Label)
+			return
+		}
+		e.activeTab.syntaxDialect = opt.ID
+		if e.activeTab.syntaxEntry != nil {
+			e.activeTab.syntaxEntry.SetDialect(opt.ID)
+		}
+		e.warmupSyntaxForTab(e.activeTab)
+		e.updateSyntaxIndicator()
+		e.status.SetText("Syntax: " + opt.Label)
+		return
+	}
+
+	e.status.SetText("Unknown syntax dialect: " + dialectID)
+}
+
+func (e *editorUI) cmdSetSyntaxTheme(themeID string) {
+	themeID = normalizeSyntaxThemeID(themeID)
+	if e.syntaxThemeID == themeID {
+		return
+	}
+	e.syntaxThemeID = themeID
+	e.applyCurrentSyntaxTheme()
+	_ = e.store.SetSetting(context.Background(), settingSyntaxThemeKey, themeID)
+	if e.status != nil {
+		e.status.SetText("Syntax theme: " + syntaxThemeLabel(themeID))
+	}
+}
+
+func (e *editorUI) applyCurrentSyntaxTheme() {
+	cwd, err := os.Getwd()
+	if err == nil {
+		fontPath := filepath.Join(cwd, "res", "SourceCodePro-Bold.ttf")
+		if th, thErr := newSourceCodeProTheme(fontPath, e.syntaxThemeID, e.customSyntaxPalette, e.editorThemeID); thErr == nil {
+			e.fyneApp.Settings().SetTheme(th)
+		}
+	}
+
+	// Rebuild syntax segments so RichText picks up the new theme colors immediately.
+	for _, tab := range e.tabState {
+		if tab == nil || tab.syntaxEntry == nil {
+			continue
+		}
+		tab.syntaxEntry.updateHighlights()
+		tab.syntaxEntry.Refresh()
+	}
+
+	if e.inEditor {
+		e.window.SetMainMenu(e.makeEditorMenu())
+	}
+	if e.window.Content() != nil {
+		e.window.Content().Refresh()
+	}
+}
+
+func (e *editorUI) cmdEditCustomSyntaxTheme() {
+	keyword := widget.NewEntry()
+	keyword.SetText(colorToHex(e.customSyntaxPalette.Keyword))
+	function := widget.NewEntry()
+	function.SetText(colorToHex(e.customSyntaxPalette.Function))
+	stringColor := widget.NewEntry()
+	stringColor.SetText(colorToHex(e.customSyntaxPalette.String))
+	number := widget.NewEntry()
+	number.SetText(colorToHex(e.customSyntaxPalette.Number))
+	comment := widget.NewEntry()
+	comment.SetText(colorToHex(e.customSyntaxPalette.Comment))
+	literal := widget.NewEntry()
+	literal.SetText(colorToHex(e.customSyntaxPalette.Literal))
+	preview := widget.NewTextGrid()
+	preview.ShowWhitespace = false
+
+	hexValidator := func(text string) error {
+		if _, ok := parseHexColor(text); ok {
+			return nil
+		}
+		return fmt.Errorf("use #RRGGBB")
+	}
+	for _, entry := range []*widget.Entry{keyword, function, stringColor, number, comment, literal} {
+		entry.Validator = hexValidator
+	}
+
+	form := widget.NewForm(
+		widget.NewFormItem("Keyword", keyword),
+		widget.NewFormItem("Function", function),
+		widget.NewFormItem("String", stringColor),
+		widget.NewFormItem("Number", number),
+		widget.NewFormItem("Comment", comment),
+		widget.NewFormItem("Literal", literal),
+	)
+
+	paletteFromEntries := func() (syntaxPalette, bool) {
+		base := e.customSyntaxPalette
+		okAll := true
+		if c, ok := parseHexColor(keyword.Text); ok {
+			base.Keyword = c
+		} else {
+			okAll = false
+		}
+		if c, ok := parseHexColor(function.Text); ok {
+			base.Function = c
+		} else {
+			okAll = false
+		}
+		if c, ok := parseHexColor(stringColor.Text); ok {
+			base.String = c
+		} else {
+			okAll = false
+		}
+		if c, ok := parseHexColor(number.Text); ok {
+			base.Number = c
+		} else {
+			okAll = false
+		}
+		if c, ok := parseHexColor(comment.Text); ok {
+			base.Comment = c
+		} else {
+			okAll = false
+		}
+		if c, ok := parseHexColor(literal.Text); ok {
+			base.Literal = c
+		} else {
+			okAll = false
+		}
+		return base, okAll
+	}
+
+	updatePreview := func() {
+		for _, entry := range []*widget.Entry{keyword, function, stringColor, number, comment, literal} {
+			_ = entry.Validate()
+		}
+		palette, _ := paletteFromEntries()
+		applySyntaxPalettePreview(preview, palette)
+	}
+
+	keyword.OnChanged = func(string) { updatePreview() }
+	function.OnChanged = func(string) { updatePreview() }
+	stringColor.OnChanged = func(string) { updatePreview() }
+	number.OnChanged = func(string) { updatePreview() }
+	comment.OnChanged = func(string) { updatePreview() }
+	literal.OnChanged = func(string) { updatePreview() }
+	updatePreview()
+
+	resetBtn := widget.NewButton("Reset to VS Code Dark+", func() {
+		preset := syntaxPalettes[defaultSyntaxThemeID]
+		keyword.SetText(colorToHex(preset.Keyword))
+		function.SetText(colorToHex(preset.Function))
+		stringColor.SetText(colorToHex(preset.String))
+		number.SetText(colorToHex(preset.Number))
+		comment.SetText(colorToHex(preset.Comment))
+		literal.SetText(colorToHex(preset.Literal))
+	})
+
+	importBtn := widget.NewButton("Import JSON...", func() {
+		opener := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
+			if err != nil {
+				dialog.ShowError(err, e.window)
+				return
+			}
+			if reader == nil {
+				return
+			}
+			defer func() { _ = reader.Close() }()
+
+			data, readErr := io.ReadAll(reader)
+			if readErr != nil {
+				dialog.ShowError(readErr, e.window)
+				return
+			}
+
+			palette, parseErr := parseCustomPaletteJSON(data)
+			if parseErr != nil {
+				dialog.ShowError(parseErr, e.window)
+				return
+			}
+
+			keyword.SetText(colorToHex(palette.Keyword))
+			function.SetText(colorToHex(palette.Function))
+			stringColor.SetText(colorToHex(palette.String))
+			number.SetText(colorToHex(palette.Number))
+			comment.SetText(colorToHex(palette.Comment))
+			literal.SetText(colorToHex(palette.Literal))
+		}, e.window)
+		opener.SetFilter(storage.NewExtensionFileFilter([]string{".json"}))
+		opener.Show()
+	})
+
+	exportBtn := widget.NewButton("Export JSON...", func() {
+		palette, ok := paletteFromEntries()
+		if !ok {
+			dialog.ShowError(fmt.Errorf("fix invalid HEX values before exporting"), e.window)
+			return
+		}
+		jsonBytes, err := marshalCustomPaletteJSON(palette)
+		if err != nil {
+			dialog.ShowError(err, e.window)
+			return
+		}
+
+		saver := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
+			if err != nil {
+				dialog.ShowError(err, e.window)
+				return
+			}
+			if writer == nil {
+				return
+			}
+			if _, wErr := writer.Write(jsonBytes); wErr != nil {
+				_ = writer.Close()
+				dialog.ShowError(wErr, e.window)
+				return
+			}
+			if cErr := writer.Close(); cErr != nil {
+				dialog.ShowError(cErr, e.window)
+				return
+			}
+		}, e.window)
+		saver.SetFilter(storage.NewExtensionFileFilter([]string{".json"}))
+		saver.SetFileName("ws7-custom-syntax-theme.json")
+		saver.Show()
+	})
+
+	content := container.NewBorder(nil, nil, nil, nil,
+		container.NewVBox(
+			form,
+			container.NewHBox(resetBtn, importBtn, exportBtn),
+			widget.NewSeparator(),
+			widget.NewLabel("Live Preview (MSX-BASIC):"),
+			container.NewVScroll(preview),
+		),
+	)
+
+	dialog.ShowCustomConfirm("Custom Syntax Theme", "Save", "Cancel", content, func(ok bool) {
+		if !ok {
+			return
+		}
+		palette, valid := paletteFromEntries()
+		if !valid {
+			dialog.ShowError(fmt.Errorf("invalid HEX value; use #RRGGBB"), e.window)
+			return
+		}
+		e.customSyntaxPalette = palette
+		e.saveCustomSyntaxPalette(context.Background())
+		e.syntaxThemeID = customSyntaxThemeID
+		e.applyCurrentSyntaxTheme()
+		_ = e.store.SetSetting(context.Background(), settingSyntaxThemeKey, customSyntaxThemeID)
+		if e.status != nil {
+			e.status.SetText("Syntax theme: Custom")
+		}
+	}, e.window)
+}
+
+func applySyntaxPalettePreview(grid *widget.TextGrid, palette syntaxPalette) {
+	if grid == nil {
+		return
+	}
+	sample := "10 PRINT LEFT$(\"HELLO\",3)\n20 A=42:REM custom preview\n30 IF A>0 THEN GOTO 10"
+	lines := syntax.HighlightDocument(syntax.DialectMSXBasicOfficial, sample)
+	rows := make([]widget.TextGridRow, 0, len(lines))
+
+	for _, line := range lines {
+		row := widget.TextGridRow{Cells: make([]widget.TextGridCell, 0, 64)}
+		for _, tok := range line {
+			style := syntaxPreviewCellStyle(tok.Kind, palette)
+			for _, r := range tok.Value {
+				row.Cells = append(row.Cells, widget.TextGridCell{Rune: r, Style: style})
+			}
+		}
+		rows = append(rows, row)
+	}
+
+	grid.Rows = rows
+	grid.Refresh()
+}
+
+func syntaxPreviewCellStyle(kind syntax.TokenKind, palette syntaxPalette) *widget.CustomTextGridStyle {
+	st := &widget.CustomTextGridStyle{TextStyle: fyne.TextStyle{Monospace: true}}
+	switch kind {
+	case syntax.TokenKeyword:
+		st.FGColor = palette.Keyword
+		st.TextStyle.Bold = true
+	case syntax.TokenFunction:
+		st.FGColor = palette.Function
+	case syntax.TokenComment:
+		st.FGColor = palette.Comment
+		st.TextStyle.Italic = true
+	case syntax.TokenString:
+		st.FGColor = palette.String
+	case syntax.TokenNumber:
+		st.FGColor = palette.Number
+	case syntax.TokenIdent:
+		st.FGColor = palette.Literal
+	default:
+		st.FGColor = nil // fall back to default foreground
+	}
+	return st
+}
+
+func colorToHex(c interface{ RGBA() (uint32, uint32, uint32, uint32) }) string {
+	r, g, b, _ := c.RGBA()
+	return fmt.Sprintf("#%02X%02X%02X", uint8(r>>8), uint8(g>>8), uint8(b>>8))
+}
+
+func mustParseHexColor(text string, fallback color.NRGBA) color.NRGBA {
+	if parsed, ok := parseHexColor(text); ok {
+		return parsed
+	}
+	return fallback
+}
+
+func parseHexColor(text string) (color.NRGBA, bool) {
+	t := strings.TrimSpace(text)
+	if strings.HasPrefix(t, "#") {
+		t = t[1:]
+	}
+	if len(t) != 6 {
+		return color.NRGBA{}, false
+	}
+	var r, g, b uint8
+	if _, err := fmt.Sscanf(t, "%02X%02X%02X", &r, &g, &b); err != nil {
+		if _, err2 := fmt.Sscanf(strings.ToLower(t), "%02x%02x%02x", &r, &g, &b); err2 != nil {
+			return color.NRGBA{}, false
+		}
+	}
+	return color.NRGBA{R: r, G: g, B: b, A: 0xFF}, true
+}
+
+type customPaletteJSON struct {
+	Keyword  string `json:"keyword"`
+	Function string `json:"function"`
+	String   string `json:"string"`
+	Number   string `json:"number"`
+	Comment  string `json:"comment"`
+	Literal  string `json:"literal,omitempty"`
+}
+
+func marshalCustomPaletteJSON(p syntaxPalette) ([]byte, error) {
+	payload := customPaletteJSON{
+		Keyword:  colorToHex(p.Keyword),
+		Function: colorToHex(p.Function),
+		String:   colorToHex(p.String),
+		Number:   colorToHex(p.Number),
+		Comment:  colorToHex(p.Comment),
+		Literal:  colorToHex(p.Literal),
+	}
+	return json.MarshalIndent(payload, "", "  ")
+}
+
+func parseCustomPaletteJSON(data []byte) (syntaxPalette, error) {
+	var payload customPaletteJSON
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return syntaxPalette{}, err
+	}
+
+	keyword, ok := parseHexColor(payload.Keyword)
+	if !ok {
+		return syntaxPalette{}, fmt.Errorf("invalid keyword color")
+	}
+	function, ok := parseHexColor(payload.Function)
+	if !ok {
+		return syntaxPalette{}, fmt.Errorf("invalid function color")
+	}
+	stringColor, ok := parseHexColor(payload.String)
+	if !ok {
+		return syntaxPalette{}, fmt.Errorf("invalid string color")
+	}
+	number, ok := parseHexColor(payload.Number)
+	if !ok {
+		return syntaxPalette{}, fmt.Errorf("invalid number color")
+	}
+	comment, ok := parseHexColor(payload.Comment)
+	if !ok {
+		return syntaxPalette{}, fmt.Errorf("invalid comment color")
+	}
+	literal := defaultCustomSyntaxPalette().Literal
+	if strings.TrimSpace(payload.Literal) != "" {
+		var litOK bool
+		literal, litOK = parseHexColor(payload.Literal)
+		if !litOK {
+			return syntaxPalette{}, fmt.Errorf("invalid literal color")
+		}
+	}
+
+	return syntaxPalette{
+		Keyword:  keyword,
+		Function: function,
+		String:   stringColor,
+		Number:   number,
+		Comment:  comment,
+		Literal:  literal,
+	}, nil
+}
+
+func (e *editorUI) loadCustomSyntaxPalette(ctx context.Context) {
+	e.customSyntaxPalette = defaultCustomSyntaxPalette()
+
+	if v, _ := e.store.GetSetting(ctx, settingCustomKeywordColorKey); v != "" {
+		e.customSyntaxPalette.Keyword = mustParseHexColor(v, e.customSyntaxPalette.Keyword)
+	}
+	if v, _ := e.store.GetSetting(ctx, settingCustomFunctionColorKey); v != "" {
+		e.customSyntaxPalette.Function = mustParseHexColor(v, e.customSyntaxPalette.Function)
+	}
+	if v, _ := e.store.GetSetting(ctx, settingCustomStringColorKey); v != "" {
+		e.customSyntaxPalette.String = mustParseHexColor(v, e.customSyntaxPalette.String)
+	}
+	if v, _ := e.store.GetSetting(ctx, settingCustomNumberColorKey); v != "" {
+		e.customSyntaxPalette.Number = mustParseHexColor(v, e.customSyntaxPalette.Number)
+	}
+	if v, _ := e.store.GetSetting(ctx, settingCustomCommentColorKey); v != "" {
+		e.customSyntaxPalette.Comment = mustParseHexColor(v, e.customSyntaxPalette.Comment)
+	}
+	if v, _ := e.store.GetSetting(ctx, settingCustomLiteralColorKey); v != "" {
+		e.customSyntaxPalette.Literal = mustParseHexColor(v, e.customSyntaxPalette.Literal)
+	}
+}
+
+func (e *editorUI) saveCustomSyntaxPalette(ctx context.Context) {
+	_ = e.store.SetSetting(ctx, settingCustomKeywordColorKey, colorToHex(e.customSyntaxPalette.Keyword))
+	_ = e.store.SetSetting(ctx, settingCustomFunctionColorKey, colorToHex(e.customSyntaxPalette.Function))
+	_ = e.store.SetSetting(ctx, settingCustomStringColorKey, colorToHex(e.customSyntaxPalette.String))
+	_ = e.store.SetSetting(ctx, settingCustomNumberColorKey, colorToHex(e.customSyntaxPalette.Number))
+	_ = e.store.SetSetting(ctx, settingCustomCommentColorKey, colorToHex(e.customSyntaxPalette.Comment))
+	_ = e.store.SetSetting(ctx, settingCustomLiteralColorKey, colorToHex(e.customSyntaxPalette.Literal))
+}
+
+
 func (e *editorUI) openMarkdownHelpDoc(fileName, label string) {
 	path, err := findProjectDocPath(fileName)
 	if err != nil {
@@ -1310,16 +2119,32 @@ func (e *editorUI) cmdRunCMDCommand() {
 	e.cmdRunPSCommand()
 }
 
+func versionBuildTraceText() string {
+	return fmt.Sprintf("Version: %s | Build: %s", version.Full(), version.Build())
+}
+
+func (e *editorUI) cmdCopyVersionBuild() {
+	trace := versionBuildTraceText()
+	e.window.Clipboard().SetContent(trace)
+	if e.status != nil {
+		e.status.SetText("Copied: " + trace)
+		return
+	}
+	dialog.ShowInformation("Copy Version+Build", trace, e.window)
+}
+
 func (e *editorUI) cmdStatus() {
 	mode := "Opening Menu"
 	if e.inEditor {
 		mode = "Editor"
 	}
-	name := "[New]"
+	name := displayDocumentName(e.filePath, "")
 	if e.filePath != "" {
 		name = e.filePath
+	} else if e.activeTab != nil {
+		name = displayDocumentName("", e.activeTab.name)
 	}
-	msg := fmt.Sprintf("Version: %s\nMode: %s\nFile: %s\nModified: %t", version.Full(), mode, name, e.dirty)
+	msg := fmt.Sprintf("Version: %s\nBuild: %s\nMode: %s\nFile: %s\nModified: %t", version.Full(), version.Build(), mode, name, e.dirty)
 	dialog.ShowInformation("Status", msg, e.window)
 }
 
@@ -1388,6 +2213,7 @@ func (e *editorUI) openFileDialogStd() {
 		defer func() { _ = reader.Close() }()
 		e.openInEditor(reader.URI().Path())
 	}, e.window)
+	d.SetFilter(msxSourceFileFilter())
 
 	lastDir, _ := e.store.GetSetting(context.Background(), "last_dir")
 	if lastDir != "" {
@@ -1449,6 +2275,13 @@ func (e *editorUI) saveAsDialog(onDone func(error)) {
 		e.browser.loadDir(filepath.Dir(e.filePath))
 		onDone(nil)
 	}, e.window)
+	d.SetFilter(msxSourceFileFilter())
+
+	fallbackName := ""
+	if e.activeTab != nil {
+		fallbackName = e.activeTab.name
+	}
+	d.SetFileName(suggestMSXSourceFileName(e.filePath, fallbackName))
 
 	lastDir, _ := e.store.GetSetting(context.Background(), "last_dir")
 	if lastDir != "" {
@@ -1483,6 +2316,7 @@ func (e *editorUI) copyAsDialog(sourcePath, content string) {
 		}
 		e.status.SetText("Copy created: " + writer.URI().Path())
 	}, e.window)
+	d.SetFilter(msxSourceFileFilter())
 
 	startDir := filepath.Dir(sourcePath)
 	if startDir == "." || startDir == "" {
@@ -1498,9 +2332,7 @@ func (e *editorUI) copyAsDialog(sourcePath, content string) {
 			}
 		}
 	}
-	if sourcePath != "" {
-		d.SetFileName(filepath.Base(sourcePath))
-	}
+	d.SetFileName(suggestMSXSourceFileName(sourcePath, "untitled.asc"))
 	d.Show()
 }
 
@@ -1584,10 +2416,11 @@ func (e *editorUI) applyViewportOffset(offsetY float32) {
 }
 
 func (e *editorUI) updateTitle() {
-	name := "[New]"
-	if e.filePath != "" {
-		name = filepath.Base(e.filePath)
+	fallbackName := ""
+	if e.activeTab != nil {
+		fallbackName = e.activeTab.name
 	}
+	name := displayDocumentName(e.filePath, fallbackName)
 	dirty := ""
 	if e.dirty {
 		dirty = "*"
@@ -1633,11 +2466,58 @@ func (e *editorUI) withDiscardConfirmation(title, message string, next func()) {
 		next()
 		return
 	}
-	dialog.ShowConfirm(title, message, func(ok bool) {
+	e.showConfirm(title, message, func(ok bool) {
 		if ok {
 			next()
 		}
-	}, e.window)
+	})
+}
+
+func (e *editorUI) showConfirm(title, message string, onResult func(bool)) {
+	if e.confirmDialog != nil {
+		e.confirmDialog(title, message, onResult, e.window)
+		return
+	}
+	dialog.ShowConfirm(title, message, onResult, e.window)
+}
+
+func (e *editorUI) unsavedTabsCount() int {
+	count := 0
+	for _, tab := range e.tabState {
+		if tab != nil && tab.dirty {
+			count++
+		}
+	}
+	if count == 0 && e.inEditor && e.dirty {
+		return 1
+	}
+	return count
+}
+
+func (e *editorUI) closeWindowNow() {
+	if e.window == nil {
+		return
+	}
+	e.allowWindowClose = true
+	if e.closeWindow != nil {
+		e.closeWindow()
+		return
+	}
+	e.window.Close()
+}
+
+func (e *editorUI) requestAppExit() {
+	unsaved := e.unsavedTabsCount()
+	if unsaved == 0 {
+		e.closeWindowNow()
+		return
+	}
+	message := fmt.Sprintf("There are unsaved changes in %d tab(s). Do you really want to exit?", unsaved)
+	e.showConfirm("Exit MSXide", message, func(ok bool) {
+		if ok {
+			e.closeWindowNow()
+		}
+	})
 }
 
 func (e *editorUI) selectedBrowserFile() (fileEntry, bool) {
@@ -1719,6 +2599,71 @@ func (e *editorUI) cmdChangeDirectory() {
 	}, e.window)
 }
 
+func (e *editorUI) cmdConfigure() {
+	currentTheme := normalizeEditorThemeID(e.editorThemeID)
+	themeSelect := widget.NewSelect([]string{"Dark", "Light"}, nil)
+	if currentTheme == editorThemeLightID {
+		themeSelect.SetSelected("Light")
+	} else {
+		themeSelect.SetSelected("Dark")
+	}
+
+	loadSetting := func(key string) string {
+		if e.store == nil {
+			return ""
+		}
+		v, _ := e.store.GetSetting(context.Background(), key)
+		return strings.TrimSpace(v)
+	}
+
+	openMSXExe := widget.NewEntry()
+	openMSXExe.SetPlaceHolder("e.g. C:\\OpenMSX\\openmsx.exe")
+	openMSXExe.SetText(loadSetting(settingOpenMSXExeKey))
+
+	msxbas2romExe := widget.NewEntry()
+	msxbas2romExe.SetPlaceHolder("Path to msxbas2rom executable")
+	msxbas2romExe.SetText(loadSetting(settingMSXBas2RomExeKey))
+
+	basicDignifiedExe := widget.NewEntry()
+	basicDignifiedExe.SetPlaceHolder("Path to BASIC Dignified executable/script")
+	basicDignifiedExe.SetText(loadSetting(settingBasicDignifiedExeKey))
+
+	msxEncodingExe := widget.NewEntry()
+	msxEncodingExe.SetPlaceHolder("Path to msx-encoding executable")
+	msxEncodingExe.SetText(loadSetting(settingMSXEncodingExeKey))
+
+	dialog.ShowForm("Configure", "Save", "Cancel", []*widget.FormItem{
+		widget.NewFormItem("Editor Theme", themeSelect),
+		widget.NewFormItem("openMSX Executable", openMSXExe),
+		widget.NewFormItem("msxbas2rom Executable", msxbas2romExe),
+		widget.NewFormItem("BASIC Dignified Executable", basicDignifiedExe),
+		widget.NewFormItem("MSX Encoding Executable", msxEncodingExe),
+	}, func(ok bool) {
+		if !ok {
+			return
+		}
+
+		nextTheme := editorThemeDarkID
+		if strings.EqualFold(themeSelect.Selected, "light") {
+			nextTheme = editorThemeLightID
+		}
+		e.editorThemeID = nextTheme
+		e.applyCurrentSyntaxTheme()
+
+		if e.store != nil {
+			_ = e.store.SetSetting(context.Background(), settingEditorThemeKey, e.editorThemeID)
+			_ = e.store.SetSetting(context.Background(), settingOpenMSXExeKey, strings.TrimSpace(openMSXExe.Text))
+			_ = e.store.SetSetting(context.Background(), settingMSXBas2RomExeKey, strings.TrimSpace(msxbas2romExe.Text))
+			_ = e.store.SetSetting(context.Background(), settingBasicDignifiedExeKey, strings.TrimSpace(basicDignifiedExe.Text))
+			_ = e.store.SetSetting(context.Background(), settingMSXEncodingExeKey, strings.TrimSpace(msxEncodingExe.Text))
+		}
+
+		if e.status != nil {
+			e.status.SetText("Configuration saved")
+		}
+	}, e.window)
+}
+
 func (e *editorUI) cmdRunPSCommand() {
 	entry := widget.NewEntry()
 	dialog.ShowForm("Run PS Command", "Run", "Cancel", []*widget.FormItem{
@@ -1752,9 +2697,7 @@ func (e *editorUI) cmdRunPSCommand() {
 }
 
 func (e *editorUI) cmdExitMSXide() {
-	e.withDiscardConfirmation("Exit MSXide", "The current file has unsaved changes. Do you really want to exit?", func() {
-		e.window.Close()
-	})
+	e.requestAppExit()
 }
 
 func (e *editorUI) cmdMarkBlockBegin() {

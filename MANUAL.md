@@ -38,6 +38,9 @@ Startup menu details (current):
 
 - `Utilities > Macros`
   - `Play... MP`, `Record... MR`, `Edit/Create... MD`, `Single Step... MS`, `Copy... MO`, `Delete... MY`, `Rename... ME`
+- `Utilities > Configure...`
+  - Choose editor theme (`Dark` / `Light`).
+  - Configure executable paths for `openMSX`, `msxbas2rom`, `BASIC Dignified`, and `MSX Encoding`.
 - `Additional`
   - `Character Editor... AC`, `Hexa Editor... AH`, `Sprite Editor... AS`, `Graphos... AG`, `Noise Editor... AN`
 - `Help`
@@ -66,8 +69,20 @@ When you enter the editor, the top menu changes to:
 Current editor features:
 
 - Tab-based editing (multiple documents).
-- New tab named `untitled`.
+- `New` opens a type selector for new source files.
+- Type options currently available:
+  - `MSX BASIC ASCII (*.asc)`
+  - `MSX BASIC Tokenized/AMX (*.amx)`
+- New tab names follow the chosen type, e.g. `untitled.asc` or `untitled.amx`.
+- `View > Syntax` exposes BASIC dialect options for highlighting.
+  - Current active highlighter: `MSX-BASIC Official`.
+  - `MSXBAS2ROM` and `BASIC Dignified` are listed as future options.
+- Editor supports optional split syntax preview beside the text editor.
+  - Toggle it in `View > Show Split Syntax Preview` / `View > Hide Split Syntax Preview`.
+  - Inline syntax highlighting remains active in normal (non-split) mode.
+- `Utilities > Configure...` is also available inside the editor with the same settings.
 - Tab close confirmation when unsaved changes exist.
+- Global exit confirmation now checks all open tabs for unsaved changes before closing the app.
 - Dirty tab indicator with `*` and warning icon.
 
 ## 5) Main Shortcuts
@@ -83,7 +98,7 @@ Current editor features:
 | `Ctrl+R` | Page up |
 | `Ctrl+C` | Page down |
 | `Ctrl+Y` | Delete line |
-| `Ctrl+N` | New tab (`untitled`) |
+| `Ctrl+N` | New tab (opens type selector; default `*.asc`) |
 | `Ctrl+W` | Close current tab |
 
 ### File Commands (WordStar)
@@ -97,6 +112,11 @@ Current editor features:
 | `Ctrl+O` `Ctrl+?` | Status |
 | `Ctrl+P` `Ctrl+?` | Change Printer |
 | `Ctrl+K` `Ctrl+Q` `Ctrl+X` | Exit |
+
+### Save / Copy dialog behavior
+
+- `Save As` and file copy dialogs now suggest the `.asc` extension explicitly for new MSX-BASIC ASCII documents.
+- These dialogs accept both `.asc` and `.amx`, keeping the workflow ready for future `.amx` file creation.
 
 ## 6) Recommended Workflow
 

@@ -36,6 +36,7 @@ type cursorEntry struct {
 	onViewportOffset func(offsetY float32)
 	onRuneBeforeInput func(r rune) bool
 	onShortcut       func(shortcut fyne.Shortcut) bool
+	hideText         bool
 }
 
 func newCursorEntry() *cursorEntry {
@@ -55,7 +56,74 @@ func (e *cursorEntry) notify() {
 func (e *cursorEntry) CreateRenderer() fyne.WidgetRenderer {
 	r := e.Entry.CreateRenderer()
 	e.attachInternalScrollHook()
+	if e.hideText {
+		cr := &cursorEntryRenderer{base: r}
+		cr.hideTextObjects()
+		return cr
+	}
 	return r
+}
+
+type cursorEntryRenderer struct {
+	base fyne.WidgetRenderer
+}
+
+func (r *cursorEntryRenderer) hideTextObjects() {
+	for _, obj := range r.base.Objects() {
+		hideEntryChromeRecursive(obj)
+		hideCanvasTextRecursive(obj)
+	}
+}
+
+func hideEntryChromeRecursive(obj fyne.CanvasObject) {
+	if rect, ok := obj.(*canvas.Rectangle); ok {
+		// Entry chrome rectangles have rounded corners in Fyne (input bg/border).
+		// Keep selection/caret visuals untouched.
+		if rect.CornerRadius > 0 {
+			rect.FillColor = color.Transparent
+			rect.StrokeColor = color.Transparent
+			rect.Refresh()
+		}
+	}
+	if withChildren, ok := obj.(interface{ Objects() []fyne.CanvasObject }); ok {
+		for _, child := range withChildren.Objects() {
+			hideEntryChromeRecursive(child)
+		}
+	}
+}
+
+func hideCanvasTextRecursive(obj fyne.CanvasObject) {
+	if txt, ok := obj.(*canvas.Text); ok {
+		txt.Color = color.NRGBA{A: 0}
+		txt.Refresh()
+	}
+	if withChildren, ok := obj.(interface{ Objects() []fyne.CanvasObject }); ok {
+		for _, child := range withChildren.Objects() {
+			hideCanvasTextRecursive(child)
+		}
+	}
+}
+
+func (r *cursorEntryRenderer) Layout(size fyne.Size) {
+	r.base.Layout(size)
+	r.hideTextObjects()
+}
+
+func (r *cursorEntryRenderer) MinSize() fyne.Size {
+	return r.base.MinSize()
+}
+
+func (r *cursorEntryRenderer) Refresh() {
+	r.base.Refresh()
+	r.hideTextObjects()
+}
+
+func (r *cursorEntryRenderer) Objects() []fyne.CanvasObject {
+	return r.base.Objects()
+}
+
+func (r *cursorEntryRenderer) Destroy() {
+	r.base.Destroy()
 }
 
 // attachInternalScrollHook installs OnScrolled on Entry's internal scroll

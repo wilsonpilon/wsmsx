@@ -8,8 +8,38 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-04-28
+
 ### Added
 
+- Added `Utilities -> Configure...` in both Opening Menu and Editor Menu.
+- Added editor configuration dialog with light/dark theme selection.
+- Added configurable executable paths for `openMSX`, `msxbas2rom`, `BASIC Dignified`, and `MSX Encoding`.
+- Added automated tests for split-view toggle rebuild behavior in `internal/ui/editor_split_view_test.go`.
+
+### Changed
+
+- App exit flow now checks unsaved changes across all open tabs before closing.
+- Split syntax preview toggle now uses `View > Show Split Syntax Preview` / `View > Hide Split Syntax Preview`.
+- Build automation now supports `build.ps1 -Run` and `build.ps1 -OpenOutputFolder`.
+- Bumped app version to `0.1.7` in `internal/version/version.go`.
+
+## [0.1.5] - 2026-04-28
+
+### Changed
+
+- Restored optional split editor view in `View` menu (`Show/Hide Split Syntax Preview`), with normal inline syntax highlighting preserved.
+- Split view now shows plain editing on one side and live syntax-highlight preview on the other.
+- Added persistence for split view preference across sessions.
+- Bumped app version to `0.1.5` in `internal/version/version.go`.
+
+### Added
+
+- New documents now start as `untitled.asc` by default, matching the MSX-BASIC ASCII editing mode.
+- `Open`, `Save As`, and file copy dialogs now use an explicit MSX source filter for `.asc` and `.amx`, while new-file suggestions default to `.asc`.
+- `New` now opens a file-type selector with `MSX BASIC ASCII (*.asc)` and `MSX BASIC Tokenized/AMX (*.amx)`, with structure prepared for future `Assembly (*.asm)` and `C (*.c)`.
+- Added syntax highlighting infrastructure in `internal/syntax` with an initial official MSX-BASIC lexer (keywords based on `msxWrite/msx_basic_decoder.py`) and placeholder dialect options for `MSXBAS2ROM` and `BASIC Dignified`.
+- Added live visual syntax rendering in the editor through a side syntax preview panel with token colors (keywords/comments/strings/numbers/operators) and `View` toggle support.
 - Opening Menu now includes a rightmost `Help` menu with Markdown viewers:
   - `README` (`HR`) opens `README.md`
   - `MANUAL` (`HM`) opens `MANUAL.md`
@@ -114,8 +144,8 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 To bump the version, edit `internal/version/version.go`:
 
 ```go
-const Version = "0.1.1"  // example patch bump
+const Version = "0.1.8"  // example patch bump
 ```
 
-Then add a new entry at the top of this file under `## [0.1.1] - YYYY-MM-DD`.
+Then add a new entry at the top of this file under `## [0.1.8] - YYYY-MM-DD`.
 

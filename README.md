@@ -1,6 +1,6 @@
 # WS7 Editor
 
-![WS7 screenshot](images/wsmsx-00.png)
+![WS7 screenshot](images/wsmsx-01.png)
 
 Text editor in Go + Fyne, inspired by the WordStar 7.0 workflow, focused on MSX-BASIC development.
 
@@ -26,14 +26,19 @@ Text editor in Go + Fyne, inspired by the WordStar 7.0 workflow, focused on MSX-
 
 ## Recent Changes
 
-- Version build metadata is now centralized in `internal/version/version.go` (`0.1.0`).
-- Application title and Status dialog show the running version.
-- Opening Menu now includes:
-  - `Utilities > Macros` (`MP`, `MR`, `MD`, `MS`, `MO`, `MY`, `ME`).
-  - `Additional` tools (`AC`, `AH`, `AS`, `AG`, `AN`).
-  - Rightmost `Help` menu (`HR`, `HM`, `HO`) rendering `README.md`, `MANUAL.md`, and `OUTLINE.md` as Markdown.
-- Line-number gutter refresh was fixed (`internal/ui/linenumbers.go`) so full numbering updates correctly while scrolling/editing.
-- Core editor behavior remains in place: tabs (`DocTabs`), dirty-tab indicator (`*`), duplicate-open focus, and unsaved-close confirmation.
+- Current release is `0.1.7`.
+- `Utilities > Configure...` is now available in both the Opening Menu and Editor Menu.
+- Configure dialog now supports:
+  - Editor theme selection (`Dark` / `Light`).
+  - Executable path settings for `openMSX`, `msxbas2rom`, `BASIC Dignified`, and `MSX Encoding`.
+- Editor `View` menu includes optional split syntax mode:
+  - `Show Split Syntax Preview`
+  - `Hide Split Syntax Preview`
+  - Inline syntax highlighting remains active in normal mode.
+- Exiting the app now checks for unsaved changes across all open tabs and asks for confirmation before closing.
+- Build script improvements:
+  - `./build.ps1 -Run` builds and runs the executable.
+  - `./build.ps1 -OpenOutputFolder` opens the output folder after build.
 
 ## Main Structure
 
@@ -44,6 +49,7 @@ internal/ui/filebrowser.go       file navigation (Opening Menu)
 internal/ui/theme.go             Source Code Pro theme
 internal/ui/linenumbers.go       line-number gutter widget/renderer
 internal/input/commands.go       Ctrl/WordStar command resolver
+internal/syntax/*                syntax highlighting registry + MSX-BASIC lexer
 internal/store/sqlite/store.go   SQLite (settings, projects, recent_files)
 internal/config/paths.go         local data paths
 internal/version/version.go      app name/version constants
@@ -60,7 +66,7 @@ build.ps1                        Windows build
 
 ## Versioning and Releases
 
-- Current app version starts at `0.1.0`.
+- Current app version is `0.1.7`.
 - Bump version in `internal/version/version.go` before each release.
 - Register new work under `## [Unreleased]` in `CHANGELOG.md`, then cut a dated version section.
 
