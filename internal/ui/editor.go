@@ -2,6 +2,8 @@ package ui
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -24,6 +27,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
+	"ws7/internal/basic/renum"
 	"ws7/internal/config"
 	"ws7/internal/input"
 	"ws7/internal/store/sqlite"
@@ -49,8 +53,13 @@ const settingCustomStringColorKey = "syntax_custom_string"
 const settingCustomNumberColorKey = "syntax_custom_number"
 const settingCustomCommentColorKey = "syntax_custom_comment"
 const settingCustomLiteralColorKey = "syntax_custom_literal"
+const defaultRenumStartLine = 10
+const defaultRenumIncrement = 10
+const defaultRenumFromLine = 0
 
 var msxSourceExtensions = []string{defaultMSXBasicASCIIExt, ".amx", ".bas", ".ldr", ".txt"}
+
+var basicLineNumberRE = regexp.MustCompile(`^\s*(\d+)`)
 
 type newFileType struct {
 	ID         string
@@ -67,16 +76,27 @@ var allNewFileTypes = []newFileType{
 	{ID: "c", Label: "C (*.c)", DefaultExt: ".c", DialectID: syntax.DialectMSXBasicOfficial, Enabled: false},
 }
 
+// maxUndoLevels is the maximum number of undo states kept per editor tab.
+const maxUndoLevels = 200
+
+// undoState captures a snapshot of editor text and cursor position for undo.
+type undoState struct {
+	text      string
+	cursorRow int
+	cursorCol int
+}
+
 type editorTab struct {
-	item      *container.TabItem
-	entry     *cursorEntry
-	syntaxEntry *syntaxHighlightEntry // extended entry with syntax highlighting
-	ruler     *rulerWidget
-	lineNums  *lineNumbersWidget
-	status    *widget.Label
-	blockTag  *widget.Label
-	clipTag   *widget.Label
-	syntaxTag *widget.Label
+	item          *container.TabItem
+	entry         *cursorEntry
+	syntaxEntry   *syntaxHighlightEntry // extended entry with syntax highlighting
+	ruler         *rulerWidget
+	floatingRuler *floatingRulerWidget // floating measurement ruler
+	lineNums      *lineNumbersWidget
+	status        *widget.Label
+	blockTag      *widget.Label
+	clipTag       *widget.Label
+	syntaxTag     *widget.Label
 
 	name      string
 	filePath  string
@@ -91,24 +111,31 @@ type editorTab struct {
 	blockEnd      int
 	hasBlockBegin bool
 	hasBlockEnd   bool
+
+	// undo history
+	undoStack     []undoState
+	lastKnownText string
+	undoing       bool
+
+	ruleMode bool
 }
 
 type editorUI struct {
-	fyneApp   fyne.App
-	window    fyne.Window
+	fyneApp          fyne.App
+	window           fyne.Window
 	allowWindowClose bool
 	confirmDialog    func(title, message string, onResult func(bool), parent fyne.Window)
 	closeWindow      func()
-	entry     *cursorEntry
-	ruler     *rulerWidget
-	lineNums  *lineNumbersWidget
-	status    *widget.Label
-	blockTag  *widget.Label
-	clipTag   *widget.Label
-	syntaxTag *widget.Label
-	resolver  *input.Resolver
-	store     *sqlite.Store
-	browser   *fileBrowser
+	entry            *cursorEntry
+	ruler            *rulerWidget
+	lineNums         *lineNumbersWidget
+	status           *widget.Label
+	blockTag         *widget.Label
+	clipTag          *widget.Label
+	syntaxTag        *widget.Label
+	resolver         *input.Resolver
+	store            *sqlite.Store
+	browser          *fileBrowser
 
 	filePath        string
 	dirty           bool
@@ -119,13 +146,13 @@ type editorUI struct {
 	prefixTimeoutID uint64
 	prefixExpired   uint32
 
-	tabs         *container.DocTabs
-	tabState     map[*container.TabItem]*editorTab
-	activeTab    *editorTab
-	untitledSeed map[string]int
-	syntaxThemeID string
-	syntaxSplitView bool
-	editorThemeID string
+	tabs                *container.DocTabs
+	tabState            map[*container.TabItem]*editorTab
+	activeTab           *editorTab
+	untitledSeed        map[string]int
+	syntaxThemeID       string
+	syntaxSplitView     bool
+	editorThemeID       string
 	customSyntaxPalette syntaxPalette
 
 	internalBlockClipboard string
@@ -153,13 +180,13 @@ func Run() error {
 	defer func() { _ = store.Close() }()
 
 	ui := &editorUI{
-		fyneApp:           a,
-		window:            a.NewWindow(version.Full() + " - Editor"),
-		resolver:          input.NewResolver(),
-		store:             store,
-		tabState:          map[*container.TabItem]*editorTab{},
-		syntaxThemeID:     defaultSyntaxThemeID,
-		editorThemeID:     defaultEditorThemeID,
+		fyneApp:             a,
+		window:              a.NewWindow(version.Full() + " - Editor"),
+		resolver:            input.NewResolver(),
+		store:               store,
+		tabState:            map[*container.TabItem]*editorTab{},
+		syntaxThemeID:       defaultSyntaxThemeID,
+		editorThemeID:       defaultEditorThemeID,
 		customSyntaxPalette: defaultCustomSyntaxPalette(),
 	}
 	ui.window.SetCloseIntercept(func() {
@@ -223,25 +250,32 @@ func (e *editorUI) ensureTabs() {
 		if tab == nil {
 			return
 		}
-		e.activeTab = tab
-		e.entry = tab.entry
-		e.ruler = tab.ruler
-		e.lineNums = tab.lineNums
-		e.status = tab.status
-		e.blockTag = tab.blockTag
-		e.clipTag = tab.clipTag
-		e.syntaxTag = tab.syntaxTag
-		e.filePath = tab.filePath
-		e.dirty = tab.dirty
-		e.cursorRow = tab.cursorRow
-		e.cursorCol = tab.cursorCol
-		e.topLine = tab.topLine
-		e.updateBlockIndicator()
-		e.updateInternalClipboardIndicator()
-		e.updateSyntaxIndicator()
-		e.updateTitle()
-		e.syncLineNumbers()
+		e.bindActiveTab(tab)
 	}
+}
+
+func (e *editorUI) bindActiveTab(tab *editorTab) {
+	if tab == nil {
+		return
+	}
+	e.activeTab = tab
+	e.entry = tab.entry
+	e.ruler = tab.ruler
+	e.lineNums = tab.lineNums
+	e.status = tab.status
+	e.blockTag = tab.blockTag
+	e.clipTag = tab.clipTag
+	e.syntaxTag = tab.syntaxTag
+	e.filePath = tab.filePath
+	e.dirty = tab.dirty
+	e.cursorRow = tab.cursorRow
+	e.cursorCol = tab.cursorCol
+	e.topLine = tab.topLine
+	e.updateBlockIndicator()
+	e.updateInternalClipboardIndicator()
+	e.updateSyntaxIndicator()
+	e.updateTitle()
+	e.syncLineNumbers()
 }
 
 func normalizePath(path string) string {
@@ -277,6 +311,15 @@ func (e *editorUI) bindTabEntry(tab *editorTab) {
 		if prevOnChanged != nil {
 			prevOnChanged(text)
 		}
+		// Push undo state (old text) before recording the new text.
+		if !tab.undoing {
+			state := undoState{text: tab.lastKnownText, cursorRow: tab.cursorRow, cursorCol: tab.cursorCol}
+			tab.undoStack = append(tab.undoStack, state)
+			if len(tab.undoStack) > maxUndoLevels {
+				tab.undoStack = tab.undoStack[len(tab.undoStack)-maxUndoLevels:]
+			}
+		}
+		tab.lastKnownText = text
 		tab.dirty = true
 		e.warmupSyntaxForTab(tab)
 		if e.activeTab == tab {
@@ -293,6 +336,14 @@ func (e *editorUI) bindTabEntry(tab *editorTab) {
 		tab.cursorRow = row
 		tab.cursorCol = col
 		tab.ruler.UpdateCursor(row, col)
+
+		// Keep floating ruler cursor position synchronized with the editor cursor.
+		if tab.floatingRuler != nil {
+			charPos := absoluteCharPos(tab.entry.Text, row, col)
+			tab.floatingRuler.UpdateCursor(charPos)
+			tab.floatingRuler.SetText(tab.entry.Text)
+		}
+
 		if e.activeTab == tab {
 			e.cursorRow = row
 			e.cursorCol = col
@@ -306,9 +357,33 @@ func (e *editorUI) bindTabEntry(tab *editorTab) {
 			e.applyViewportOffset(offsetY)
 		}
 	}
+	tab.entry.onSecondaryTapped = func(row, col int) {}
+	tab.entry.onKeyBeforeInput = func(key *fyne.KeyEvent) bool {
+		if key == nil || key.Name != fyne.KeyEscape {
+			return false
+		}
+		if !tab.ruleMode {
+			return false
+		}
+		e.setRuleMode(tab, false)
+		if e.activeTab == tab && e.status != nil {
+			e.status.SetText("RULE: off")
+		}
+		return true
+	}
 	tab.entry.onRuneBeforeInput = func(r rune) bool {
 		if !e.inEditor || e.activeTab != tab {
 			return false
+		}
+		if tab.ruleMode && (r == 'b' || r == 'B') {
+			if tab.floatingRuler != nil {
+				charPos := absoluteCharPos(tab.entry.Text, tab.cursorRow, tab.cursorCol)
+				msg := tab.floatingRuler.MarkBlockPoint(charPos)
+				if e.status != nil {
+					e.status.SetText(msg)
+				}
+			}
+			return true
 		}
 		e.consumePrefixTimeoutIfNeeded()
 		if !e.resolver.HasPrefix() {
@@ -451,11 +526,19 @@ func (e *editorUI) tabEditorContent(tab *editorTab) fyne.CanvasObject {
 	}
 	statusBar := container.NewBorder(nil, nil, nil, container.NewHBox(tab.blockTag, tab.clipTag, tab.syntaxTag), tab.status)
 
+	top := fyne.CanvasObject(nil)
+
 	if e.syntaxSplitView && tab.syntaxEntry != nil {
 		preview := container.NewScroll(tab.syntaxEntry.richText)
 		split := container.NewHSplit(tab.entry, preview)
 		split.Offset = 0.55
-		return container.NewBorder(tab.ruler, statusBar, tab.lineNums, nil, split)
+		mainContent := container.NewBorder(top, statusBar, tab.lineNums, nil, split)
+
+		// If ruleMode is active, stack the floating ruler over the main content
+		if tab.ruleMode && tab.floatingRuler != nil {
+			return container.NewStack(mainContent, tab.floatingRuler)
+		}
+		return mainContent
 	}
 
 	// Use syntaxEntry (with syntax highlighting) if available, otherwise use plain entry
@@ -464,7 +547,37 @@ func (e *editorUI) tabEditorContent(tab *editorTab) fyne.CanvasObject {
 		displayEntry = tab.syntaxEntry
 	}
 
-	return container.NewBorder(tab.ruler, statusBar, tab.lineNums, nil, displayEntry)
+	mainContent := container.NewBorder(top, statusBar, tab.lineNums, nil, displayEntry)
+
+	// If ruleMode is active, stack the floating ruler over the main content
+	if tab.ruleMode && tab.floatingRuler != nil {
+		return container.NewStack(mainContent, tab.floatingRuler)
+	}
+	return mainContent
+}
+
+func absoluteCharPos(text string, row, col int) int {
+	if row < 0 {
+		row = 0
+	}
+	if col < 0 {
+		col = 0
+	}
+	lines := strings.Split(text, "\n")
+	if len(lines) == 0 {
+		return col
+	}
+	if row >= len(lines) {
+		row = len(lines) - 1
+	}
+	if col > len(lines[row]) {
+		col = len(lines[row])
+	}
+	pos := col
+	for i := 0; i < row; i++ {
+		pos += len(lines[i]) + 1
+	}
+	return pos
 }
 
 func (e *editorUI) newEditorTab(fileType newFileType) *editorTab {
@@ -476,11 +589,12 @@ func (e *editorUI) newEditorTab(fileType newFileType) *editorTab {
 	syntaxEntry := newSyntaxHighlightEntry(dialectID)
 	// Get the underlying cursorEntry from syntaxEntry
 	baseEntry := syntaxEntry.entry
-	
+
 	tab := &editorTab{
 		entry:         baseEntry,
 		syntaxEntry:   syntaxEntry,
 		ruler:         newRulerWidget(),
+		floatingRuler: newFloatingRulerWidget(),
 		lineNums:      newLineNumbersWidget(),
 		status:        widget.NewLabel(""),
 		blockTag:      widget.NewLabel(""),
@@ -497,9 +611,11 @@ func (e *editorUI) newEditorTab(fileType newFileType) *editorTab {
 	e.tabState[tab.item] = tab
 	e.tabs.Append(tab.item)
 	e.tabs.Select(tab.item)
+	e.bindActiveTab(tab)
 	e.warmupSyntaxForTab(tab)
 	e.updateSyntaxIndicator()
 	e.refreshTabTitle(tab)
+	e.recordProgramSnapshot(tab, nil)
 	return tab
 }
 
@@ -633,7 +749,25 @@ func (e *editorUI) showEditorForType(path string, initialType *newFileType) {
 		dialog.ShowError(err, e.window)
 		return
 	}
+	if e.entry == nil && e.tabs != nil {
+		if selected := e.tabs.Selected(); selected != nil {
+			e.bindActiveTab(e.tabState[selected])
+		}
+	}
+	if e.entry == nil {
+		dialog.ShowError(fmt.Errorf("editor is not ready: no active tab selected"), e.window)
+		return
+	}
+	// Suppress undo tracking while the initial file text is loaded.
+	if e.activeTab != nil {
+		e.activeTab.undoing = true
+	}
 	e.entry.SetText(string(data))
+	if e.activeTab != nil {
+		e.activeTab.lastKnownText = string(data)
+		e.activeTab.undoStack = nil
+		e.activeTab.undoing = false
+	}
 	e.filePath = path
 	e.dirty = false
 	e.cursorRow = 0
@@ -641,7 +775,9 @@ func (e *editorUI) showEditorForType(path string, initialType *newFileType) {
 	e.topLine = 0
 	e.entry.CursorRow = 0
 	e.entry.CursorColumn = 0
-	e.ruler.UpdateCursor(0, 0)
+	if e.ruler != nil {
+		e.ruler.UpdateCursor(0, 0)
+	}
 	e.syncLineNumbers()
 	if e.activeTab != nil {
 		e.activeTab.filePath = path
@@ -652,11 +788,16 @@ func (e *editorUI) showEditorForType(path string, initialType *newFileType) {
 		e.warmupSyntaxForTab(e.activeTab)
 		e.updateSyntaxIndicator()
 		e.refreshTabTitle(e.activeTab)
+		e.recordProgramSnapshot(e.activeTab, nil)
 	}
-	_ = e.store.TouchRecentFile(context.Background(), path)
-	_ = e.store.SetSetting(context.Background(), "last_file", path)
-	_ = e.store.SetSetting(context.Background(), "last_dir", filepath.Dir(path))
-	e.browser.loadDir(filepath.Dir(path)) // keep browser in sync
+	if e.store != nil {
+		_ = e.store.TouchRecentFile(context.Background(), path)
+		_ = e.store.SetSetting(context.Background(), "last_file", path)
+		_ = e.store.SetSetting(context.Background(), "last_dir", filepath.Dir(path))
+	}
+	if e.browser != nil {
+		e.browser.loadDir(filepath.Dir(path)) // keep browser in sync
+	}
 	e.updateTitle()
 	e.window.Canvas().Focus(e.entry)
 }
@@ -930,15 +1071,18 @@ var cmdChordLabel = map[input.Command]string{
 	input.CmdDeleteBlock:       "Ctrl+K,Y",
 	input.CmdExit:              "Ctrl+K,Q,X",
 	input.CmdOpenSwitch:        "Ctrl+O,K",
+	input.CmdRule:              "Ctrl+Q,R",
 	input.CmdStatus:            "Ctrl+O,?",
 	input.CmdAutoAlign:         "Ctrl+O,A",
 	input.CmdChangePrinter:     "Ctrl+P,?",
 	input.CmdFind:              "Ctrl+Q,F",
 	input.CmdFindReplace:       "Ctrl+Q,A",
+	input.CmdBasicRenum:        "Ctrl+Q,E",
 	input.CmdGoToChar:          "Ctrl+Q,G",
 	input.CmdGoToPage:          "Ctrl+Q,I",
-	input.CmdGoDocBegin:        "Ctrl+Q,R",
+	input.CmdGoDocBegin:        "Ctrl+O,L",
 	input.CmdGoDocEnd:          "Ctrl+Q,C",
+	input.CmdBasicDelete:       "Ctrl+Q,D",
 	input.CmdDeleteLineRight:   "Ctrl+Q,Y",
 	input.CmdGoPrevPosition:    "Ctrl+Q,P",
 	input.CmdGoLastFindReplace: "Ctrl+Q,V",
@@ -1015,11 +1159,14 @@ func (e *editorUI) execute(cmd input.Command) {
 	case input.CmdDeleteLineLeft:
 		e.cmdDeleteLineLeft()
 		e.status.SetText("Ctrl+Q,DEL: text left deleted")
+	case input.CmdBasicDelete:
+		e.cmdBasicDelete()
+	case input.CmdBasicRenum:
+		e.cmdBasicRenum()
 	case input.CmdDeleteBlock:
 		e.cmdDeleteBlockMarked()
 	case input.CmdUndo:
-		e.entry.TypedShortcut(&fyne.ShortcutUndo{})
-		e.status.SetText("Ctrl+U: undo")
+		e.cmdUndo()
 	case input.CmdNewTab:
 		e.newFile()
 		e.status.SetText("Ctrl+N: new file")
@@ -1090,7 +1237,7 @@ func (e *editorUI) execute(cmd input.Command) {
 		e.cmdNotImplemented("Go to End of Block (Ctrl+Q,K)")
 	case input.CmdGoDocBegin:
 		e.entry.TypedKey(&fyne.KeyEvent{Name: fyne.KeyHome})
-		e.status.SetText("Ctrl+Q,R: document start")
+		e.status.SetText("Ctrl+O,L: document start")
 	case input.CmdGoDocEnd:
 		e.entry.TypedKey(&fyne.KeyEvent{Name: fyne.KeyEnd})
 		e.status.SetText("Ctrl+Q,C: document end")
@@ -1108,6 +1255,8 @@ func (e *editorUI) execute(cmd input.Command) {
 	// ── Settings ──────────────────────────────────────────────────────────────
 	case input.CmdAutoAlign:
 		e.cmdNotImplemented("Auto Align (Ctrl+O,A)")
+	case input.CmdRule:
+		e.cmdRule()
 	case input.CmdCloseDialog:
 		e.status.SetText("Ctrl+O,Enter: close dialog")
 
@@ -1316,6 +1465,8 @@ func (e *editorUI) makeEditorMenu() *fyne.MainMenu {
 		fyne.NewMenuItem("(none)", nil),
 	)
 	utilitiesMenu := fyne.NewMenu("Utilities",
+		fyne.NewMenuItem("RULE (Regua)               Ctrl+Q,R  ESC para sair", func() { e.cmdRule() }),
+		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Configure...", func() { e.cmdConfigure() }),
 	)
 
@@ -1399,6 +1550,44 @@ func (e *editorUI) setSyntaxSplitView(enabled bool) {
 	}
 }
 
+func (e *editorUI) setRuleMode(tab *editorTab, enabled bool) {
+	if tab == nil || tab.ruleMode == enabled {
+		return
+	}
+	tab.ruleMode = enabled
+	if enabled && tab.floatingRuler != nil {
+		origin := absoluteCharPos(tab.entry.Text, tab.cursorRow, tab.cursorCol)
+		tab.floatingRuler.SetText(tab.entry.Text)
+		tab.floatingRuler.SetOriginCharPos(origin)
+		tab.floatingRuler.UpdateCursor(origin)
+		tab.floatingRuler.ResetBlockSelection()
+	}
+	if tab.item != nil {
+		tab.item.Content = e.tabEditorContent(tab)
+	}
+	if e.tabs != nil {
+		e.tabs.Refresh()
+	}
+	if e.activeTab == tab && e.window != nil && e.entry != nil {
+		e.window.Canvas().Focus(e.entry)
+	}
+}
+
+func (e *editorUI) cmdRule() {
+	if e.activeTab == nil {
+		return
+	}
+	next := !e.activeTab.ruleMode
+	e.setRuleMode(e.activeTab, next)
+	if e.status != nil {
+		if next {
+			e.status.SetText("RULE: on (ESC para sair)")
+		} else {
+			e.status.SetText("RULE: off")
+		}
+	}
+}
+
 func (e *editorUI) makeEditorEditMenu() *fyne.Menu {
 	// ── Move submenu ──────────────────────────────────────────────────────────
 	moveItem := fyne.NewMenuItem("Move", nil)
@@ -1449,7 +1638,7 @@ func (e *editorUI) makeEditorEditMenu() *fyne.Menu {
 		fyne.NewMenuItem("Last Find/Replace             Ctrl+Q,V", func() { e.execute(input.CmdGoLastFindReplace) }),
 		fyne.NewMenuItem("Beginning of Block            Ctrl+Q,B", func() { e.execute(input.CmdGoBlockBegin) }),
 		fyne.NewMenuItem("End of Block                  Ctrl+Q,K", func() { e.execute(input.CmdGoBlockEnd) }),
-		fyne.NewMenuItem("Document Beginning            Ctrl+Q,R", func() { e.execute(input.CmdGoDocBegin) }),
+		fyne.NewMenuItem("Document Beginning            Ctrl+O,L", func() { e.execute(input.CmdGoDocBegin) }),
 		fyne.NewMenuItem("Document End                  Ctrl+Q,C", func() { e.execute(input.CmdGoDocEnd) }),
 		fyne.NewMenuItem("Scroll Continuously Up        Ctrl+Q,W", func() { e.execute(input.CmdScrollContUp) }),
 		fyne.NewMenuItem("Scroll Continuously Down      Ctrl+Q,Z", func() { e.execute(input.CmdScrollContDown) }),
@@ -1484,7 +1673,15 @@ func (e *editorUI) makeEditorEditMenu() *fyne.Menu {
 		fyne.NewMenuItem("Closes Dialog                 Ctrl+O,[ENTER]", func() { e.execute(input.CmdCloseDialog) }),
 	)
 
+	basicItem := fyne.NewMenuItem("BASIC", nil)
+	basicItem.ChildMenu = fyne.NewMenu("",
+		fyne.NewMenuItem("DELETE...                     Ctrl+Q,D", func() { e.execute(input.CmdBasicDelete) }),
+		fyne.NewMenuItem("RENUM...                      Ctrl+Q,E", func() { e.execute(input.CmdBasicRenum) }),
+	)
+
 	return fyne.NewMenu("Edit",
+		basicItem,
+		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Undo                          Ctrl+U", func() { e.execute(input.CmdUndo) }),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Mark Block Beginning          Ctrl+K,B", func() { e.execute(input.CmdMarkBlockBegin) }),
@@ -1855,7 +2052,9 @@ func syntaxPreviewCellStyle(kind syntax.TokenKind, palette syntaxPalette) *widge
 	return st
 }
 
-func colorToHex(c interface{ RGBA() (uint32, uint32, uint32, uint32) }) string {
+func colorToHex(c interface {
+	RGBA() (uint32, uint32, uint32, uint32)
+}) string {
 	r, g, b, _ := c.RGBA()
 	return fmt.Sprintf("#%02X%02X%02X", uint8(r>>8), uint8(g>>8), uint8(b>>8))
 }
@@ -1981,7 +2180,6 @@ func (e *editorUI) saveCustomSyntaxPalette(ctx context.Context) {
 	_ = e.store.SetSetting(ctx, settingCustomCommentColorKey, colorToHex(e.customSyntaxPalette.Comment))
 	_ = e.store.SetSetting(ctx, settingCustomLiteralColorKey, colorToHex(e.customSyntaxPalette.Literal))
 }
-
 
 func (e *editorUI) openMarkdownHelpDoc(fileName, label string) {
 	path, err := findProjectDocPath(fileName)
@@ -2243,6 +2441,9 @@ func (e *editorUI) saveWithPrompt(onDone func(error)) {
 	_ = e.store.TouchRecentFile(context.Background(), e.filePath)
 	_ = e.store.SetSetting(context.Background(), "last_file", e.filePath)
 	_ = e.store.SetSetting(context.Background(), "last_dir", filepath.Dir(e.filePath))
+	if e.activeTab != nil {
+		e.recordProgramSnapshot(e.activeTab, nil)
+	}
 	onDone(nil)
 }
 
@@ -2273,6 +2474,9 @@ func (e *editorUI) saveAsDialog(onDone func(error)) {
 		_ = e.store.SetSetting(context.Background(), "last_file", e.filePath)
 		_ = e.store.SetSetting(context.Background(), "last_dir", filepath.Dir(e.filePath))
 		e.browser.loadDir(filepath.Dir(e.filePath))
+		if e.activeTab != nil {
+			e.recordProgramSnapshot(e.activeTab, nil)
+		}
 		onDone(nil)
 	}, e.window)
 	d.SetFilter(msxSourceFileFilter())
@@ -2664,6 +2868,386 @@ func (e *editorUI) cmdConfigure() {
 	}, e.window)
 }
 
+func (e *editorUI) cmdBasicRenum() {
+	if e.activeTab == nil || e.activeTab.entry == nil {
+		return
+	}
+
+	startDefault, incDefault, fromDefault := e.renumDefaultsForActiveTab()
+
+	startEntry := widget.NewEntry()
+	startEntry.SetText(strconv.Itoa(startDefault))
+	incEntry := widget.NewEntry()
+	incEntry.SetText(strconv.Itoa(incDefault))
+	fromEntry := widget.NewEntry()
+	fromEntry.SetText(strconv.Itoa(fromDefault))
+	strictCheck := widget.NewCheck("Strict MSX parity (fail on undefined flow references)", nil)
+
+	dialog.ShowForm("BASIC RENUM", "Apply", "Cancel", []*widget.FormItem{
+		widget.NewFormItem("Start Line", startEntry),
+		widget.NewFormItem("Increment", incEntry),
+		widget.NewFormItem("Renumber From Line", fromEntry),
+		widget.NewFormItem("Mode", strictCheck),
+	}, func(ok bool) {
+		if !ok {
+			return
+		}
+
+		startLine, err := strconv.Atoi(strings.TrimSpace(startEntry.Text))
+		if err != nil || startLine <= 0 {
+			dialog.ShowInformation("BASIC RENUM", "Start Line must be an integer greater than zero.", e.window)
+			return
+		}
+		increment, err := strconv.Atoi(strings.TrimSpace(incEntry.Text))
+		if err != nil || increment <= 0 {
+			dialog.ShowInformation("BASIC RENUM", "Increment must be an integer greater than zero.", e.window)
+			return
+		}
+		fromLine, err := strconv.Atoi(strings.TrimSpace(fromEntry.Text))
+		if err != nil || fromLine < 0 {
+			dialog.ShowInformation("BASIC RENUM", "Renumber From Line must be an integer zero or greater.", e.window)
+			return
+		}
+
+		opts := renum.Options{StartLine: startLine, Increment: increment, FromLine: fromLine, StrictMSXParity: strictCheck.Checked}
+		result, renumErr := renum.Renumber(e.activeTab.entry.Text, opts)
+		if renumErr != nil {
+			dialog.ShowError(renumErr, e.window)
+			if e.status != nil {
+				e.status.SetText("BASIC RENUM failed (strict parity)")
+			}
+			return
+		}
+		e.activeTab.entry.SetText(result.Text)
+		e.recordProgramSnapshot(e.activeTab, &opts)
+		stats := renum.SummarizeWarnings(result.UndefinedRefs)
+		if stats.Total > 0 {
+			dialog.ShowInformation("BASIC RENUM Warnings", formatRenumWarnings(result.UndefinedRefs), e.window)
+		}
+		if e.status != nil {
+			modeSuffix := ""
+			if opts.StrictMSXParity {
+				modeSuffix = " [strict parity]"
+			}
+			status := fmt.Sprintf("BASIC RENUM complete (%d line(s) renumbered)%s", result.RenumberedLines, modeSuffix)
+			if stats.Total > 0 {
+				parts := make([]string, 0, 2)
+				if stats.Flow > 0 {
+					parts = append(parts, fmt.Sprintf("%d flow warning(s)", stats.Flow))
+				}
+				if stats.Listing > 0 {
+					parts = append(parts, fmt.Sprintf("%d listing info item(s)", stats.Listing))
+				}
+				status = fmt.Sprintf("BASIC RENUM complete (%d line(s) renumbered, %s)%s", result.RenumberedLines, strings.Join(parts, ", "), modeSuffix)
+			}
+			e.status.SetText(status)
+		}
+	}, e.window)
+}
+
+func (e *editorUI) cmdBasicDelete() {
+	if e.activeTab == nil || e.activeTab.entry == nil {
+		return
+	}
+
+	text := e.activeTab.entry.Text
+	firstLine, lastLine, ok := basicProgramLineRange(text)
+	if !ok {
+		dialog.ShowInformation("BASIC DELETE", "The program has no numbered BASIC lines.", e.window)
+		return
+	}
+
+	modeOptions := []string{
+		"Current line only",
+		"Entire program",
+		"Cursor to end",
+		"Cursor to beginning",
+		"Line range",
+	}
+	modeSelect := widget.NewSelect(modeOptions, nil)
+	modeSelect.SetSelected(modeOptions[0])
+
+	startEntry := widget.NewEntry()
+	endEntry := widget.NewEntry()
+	if currentLine, ok := basicLineNumberAtRow(text, e.activeTab.entry.CursorRow); ok {
+		startEntry.SetText(strconv.Itoa(currentLine))
+		endEntry.SetText(strconv.Itoa(currentLine))
+	}
+
+	dialog.ShowForm("BASIC DELETE", "Apply", "Cancel", []*widget.FormItem{
+		widget.NewFormItem("Mode", modeSelect),
+		widget.NewFormItem("Start Line", startEntry),
+		widget.NewFormItem("End Line", endEntry),
+		widget.NewFormItem("Notes", widget.NewLabel("Use Start Line and End Line only for Line range.")),
+	}, func(ok bool) {
+		if !ok {
+			return
+		}
+
+		deleteFrom, deleteTo, err := e.resolveBasicDeleteScope(modeSelect.Selected, strings.TrimSpace(startEntry.Text), strings.TrimSpace(endEntry.Text), firstLine, lastLine)
+		if err != nil {
+			dialog.ShowInformation("BASIC DELETE", err.Error(), e.window)
+			return
+		}
+
+		result, deleteErr := renum.DeleteRange(text, deleteFrom, deleteTo)
+		if deleteErr != nil {
+			dialog.ShowError(deleteErr, e.window)
+			return
+		}
+		if len(result.BlockingRefs) > 0 {
+			dialog.ShowInformation("BASIC DELETE Blocked", formatBasicDeleteWarnings(deleteFrom, deleteTo, result.BlockingRefs), e.window)
+			if e.status != nil {
+				stats := renum.SummarizeReferences(result.BlockingRefs)
+				parts := make([]string, 0, 2)
+				if stats.Flow > 0 {
+					parts = append(parts, fmt.Sprintf("%d flow reference(s)", stats.Flow))
+				}
+				if stats.Listing > 0 {
+					parts = append(parts, fmt.Sprintf("%d listing reference(s)", stats.Listing))
+				}
+				e.status.SetText(fmt.Sprintf("BASIC DELETE blocked (%s)", strings.Join(parts, ", ")))
+			}
+			return
+		}
+		if result.DeletedLines == 0 {
+			dialog.ShowInformation("BASIC DELETE", "No numbered BASIC lines matched the selected delete scope.", e.window)
+			return
+		}
+
+		e.activeTab.entry.SetText(result.Text)
+		e.recordProgramSnapshot(e.activeTab, nil)
+		if e.status != nil {
+			e.status.SetText(fmt.Sprintf("BASIC DELETE complete (%d line(s) deleted)", result.DeletedLines))
+		}
+	}, e.window)
+}
+
+func formatRenumWarnings(refs []renum.UndefinedReference) string {
+	if len(refs) == 0 {
+		return "No warnings."
+	}
+	stats := renum.SummarizeWarnings(refs)
+	flow := make([]renum.UndefinedReference, 0, stats.Flow)
+	listing := make([]renum.UndefinedReference, 0, stats.Listing)
+	for _, ref := range refs {
+		switch renumWarningCategory(ref) {
+		case renum.WarningCategoryListing:
+			listing = append(listing, ref)
+		default:
+			flow = append(flow, ref)
+		}
+	}
+
+	const maxItems = 12
+	shown := 0
+	lines := []string{"Some references point to lines not found in the program:"}
+	shown = appendRenumWarningSection(&lines, "Flow warnings (severity: warning)", flow, maxItems, shown)
+	shown = appendRenumWarningSection(&lines, "Listing notices (severity: info)", listing, maxItems, shown)
+	if len(refs) > shown {
+		lines = append(lines, fmt.Sprintf("- ...and %d more item(s)", len(refs)-shown))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func formatBasicDeleteWarnings(deleteFrom, deleteTo int, refs []renum.Reference) string {
+	if len(refs) == 0 {
+		return "No warnings."
+	}
+	stats := renum.SummarizeReferences(refs)
+	flow := make([]renum.Reference, 0, stats.Flow)
+	listing := make([]renum.Reference, 0, stats.Listing)
+	for _, ref := range refs {
+		switch ref.Category {
+		case renum.WarningCategoryListing:
+			listing = append(listing, ref)
+		default:
+			flow = append(flow, ref)
+		}
+	}
+
+	const maxItems = 12
+	shown := 0
+	lines := []string{fmt.Sprintf("Deletion blocked: lines %d to %d are still referenced by remaining code.", deleteFrom, deleteTo)}
+	shown = appendBasicDeleteWarningSection(&lines, "Flow references (severity: warning)", flow, maxItems, shown)
+	shown = appendBasicDeleteWarningSection(&lines, "Listing references (severity: info)", listing, maxItems, shown)
+	if len(refs) > shown {
+		lines = append(lines, fmt.Sprintf("- ...and %d more item(s)", len(refs)-shown))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func appendBasicDeleteWarningSection(lines *[]string, title string, refs []renum.Reference, maxItems, shown int) int {
+	if len(refs) == 0 || shown >= maxItems {
+		return shown
+	}
+	*lines = append(*lines, title)
+	for _, ref := range refs {
+		if shown >= maxItems {
+			break
+		}
+		*lines = append(*lines, fmt.Sprintf("- Source %d: %s %d", ref.SourceLine, strings.ToUpper(strings.TrimSpace(ref.Command)), ref.Target))
+		shown++
+	}
+	return shown
+}
+
+func appendRenumWarningSection(lines *[]string, title string, refs []renum.UndefinedReference, maxItems, shown int) int {
+	if len(refs) == 0 || shown >= maxItems {
+		return shown
+	}
+	*lines = append(*lines, title)
+	for _, ref := range refs {
+		if shown >= maxItems {
+			break
+		}
+		*lines = append(*lines, fmt.Sprintf("- Source %d: %s %d", ref.SourceLine, strings.ToUpper(strings.TrimSpace(ref.Command)), ref.Target))
+		shown++
+	}
+	return shown
+}
+
+func renumWarningCategory(ref renum.UndefinedReference) renum.WarningCategory {
+	if ref.Category != "" {
+		return ref.Category
+	}
+	switch strings.ToUpper(strings.TrimSpace(ref.Command)) {
+	case "LIST", "LLIST":
+		return renum.WarningCategoryListing
+	default:
+		return renum.WarningCategoryFlow
+	}
+}
+
+func (e *editorUI) renumDefaultsForActiveTab() (int, int, int) {
+	start := defaultRenumStartLine
+	inc := defaultRenumIncrement
+	from := defaultRenumFromLine
+	if e.activeTab == nil || e.store == nil {
+		return start, inc, from
+	}
+	fileName, filePath := tabProgramIdentity(e.activeTab)
+	snapshot, err := e.store.GetLatestProgramSnapshot(context.Background(), fileName, filePath)
+	if err != nil {
+		return start, inc, from
+	}
+	if snapshot.RenumStart > 0 {
+		start = snapshot.RenumStart
+	}
+	if snapshot.RenumIncrement > 0 {
+		inc = snapshot.RenumIncrement
+	}
+	if snapshot.RenumFromLine >= 0 {
+		from = snapshot.RenumFromLine
+	}
+	return start, inc, from
+}
+
+func (e *editorUI) resolveBasicDeleteScope(mode, startText, endText string, firstLine, lastLine int) (int, int, error) {
+	text := e.activeTab.entry.Text
+	row := e.activeTab.entry.CursorRow
+	switch mode {
+	case "Current line only":
+		line, ok := basicLineNumberAtRow(text, row)
+		if !ok {
+			return 0, 0, fmt.Errorf("the cursor is not on a numbered BASIC line")
+		}
+		return line, line, nil
+	case "Entire program":
+		return firstLine, lastLine, nil
+	case "Cursor to end":
+		line, ok := basicLineNumberOnOrAfterRow(text, row)
+		if !ok {
+			return 0, 0, fmt.Errorf("no numbered BASIC line was found at or after the cursor")
+		}
+		return line, lastLine, nil
+	case "Cursor to beginning":
+		line, ok := basicLineNumberOnOrBeforeRow(text, row)
+		if !ok {
+			return 0, 0, fmt.Errorf("no numbered BASIC line was found at or before the cursor")
+		}
+		return firstLine, line, nil
+	case "Line range":
+		startLine, err := strconv.Atoi(startText)
+		if err != nil || startLine <= 0 {
+			return 0, 0, fmt.Errorf("Start Line must be an integer greater than zero")
+		}
+		endLine, err := strconv.Atoi(endText)
+		if err != nil || endLine <= 0 {
+			return 0, 0, fmt.Errorf("End Line must be an integer greater than zero")
+		}
+		if startLine > endLine {
+			return 0, 0, fmt.Errorf("Start Line must be less than or equal to End Line")
+		}
+		return startLine, endLine, nil
+	default:
+		return 0, 0, fmt.Errorf("choose a delete mode")
+	}
+}
+
+func (e *editorUI) recordProgramSnapshot(tab *editorTab, renumOpts *renum.Options) {
+	if e.store == nil || tab == nil || tab.entry == nil {
+		return
+	}
+	fileName, filePath := tabProgramIdentity(tab)
+	sha := sha1.Sum([]byte(tab.entry.Text))
+	snapshot := sqlite.ProgramSnapshot{
+		FileName:     fileName,
+		FilePath:     filePath,
+		ContentSHA1:  hex.EncodeToString(sha[:]),
+		ContentBytes: len(tab.entry.Text),
+	}
+	if renumOpts != nil {
+		snapshot.RenumStart = renumOpts.StartLine
+		snapshot.RenumIncrement = renumOpts.Increment
+		snapshot.RenumFromLine = renumOpts.FromLine
+	}
+	_ = e.store.UpsertProgramSnapshot(context.Background(), snapshot)
+}
+
+// cmdUndo pops the most recent undo state for the active tab and restores it.
+func (e *editorUI) cmdUndo() {
+	tab := e.activeTab
+	if tab == nil || tab.entry == nil {
+		if e.status != nil {
+			e.status.SetText("Undo: no active editor")
+		}
+		return
+	}
+	if len(tab.undoStack) == 0 {
+		if e.status != nil {
+			e.status.SetText("Undo: nothing more to undo")
+		}
+		return
+	}
+	state := tab.undoStack[len(tab.undoStack)-1]
+	tab.undoStack = tab.undoStack[:len(tab.undoStack)-1]
+
+	tab.undoing = true
+	tab.entry.SetText(state.text)
+	tab.lastKnownText = state.text
+	tab.undoing = false
+
+	e.applyCursorPosition(state.cursorRow, state.cursorCol)
+
+	remaining := len(tab.undoStack)
+	if e.status != nil {
+		e.status.SetText(fmt.Sprintf("Undo: restored (%d level(s) remaining)", remaining))
+	}
+}
+
+func tabProgramIdentity(tab *editorTab) (string, string) {
+	fileName := tab.name
+	if strings.TrimSpace(tab.filePath) != "" {
+		fileName = filepath.Base(tab.filePath)
+	}
+	filePath := ""
+	if strings.TrimSpace(tab.filePath) != "" {
+		filePath = filepath.Clean(tab.filePath)
+	}
+	return fileName, filePath
+}
+
 func (e *editorUI) cmdRunPSCommand() {
 	entry := widget.NewEntry()
 	dialog.ShowForm("Run PS Command", "Run", "Cancel", []*widget.FormItem{
@@ -2922,6 +3506,78 @@ func (e *editorUI) deleteCurrentLine() {
 		all = all[:start] + all[pos+end+1:]
 	}
 	e.entry.SetText(all)
+}
+
+func basicProgramLineRange(text string) (int, int, bool) {
+	lines := strings.Split(text, "\n")
+	first := 0
+	last := 0
+	for _, raw := range lines {
+		lineNumber, ok := parseBasicLineNumber(raw)
+		if !ok {
+			continue
+		}
+		if first == 0 {
+			first = lineNumber
+		}
+		last = lineNumber
+	}
+	if first == 0 {
+		return 0, 0, false
+	}
+	return first, last, true
+}
+
+func basicLineNumberAtRow(text string, row int) (int, bool) {
+	lines := strings.Split(text, "\n")
+	if row < 0 || row >= len(lines) {
+		return 0, false
+	}
+	return parseBasicLineNumber(lines[row])
+}
+
+func basicLineNumberOnOrBeforeRow(text string, row int) (int, bool) {
+	lines := strings.Split(text, "\n")
+	if len(lines) == 0 {
+		return 0, false
+	}
+	if row >= len(lines) {
+		row = len(lines) - 1
+	}
+	for i := row; i >= 0; i-- {
+		if lineNumber, ok := parseBasicLineNumber(lines[i]); ok {
+			return lineNumber, true
+		}
+	}
+	return 0, false
+}
+
+func basicLineNumberOnOrAfterRow(text string, row int) (int, bool) {
+	lines := strings.Split(text, "\n")
+	if len(lines) == 0 {
+		return 0, false
+	}
+	if row < 0 {
+		row = 0
+	}
+	for i := row; i < len(lines); i++ {
+		if lineNumber, ok := parseBasicLineNumber(lines[i]); ok {
+			return lineNumber, true
+		}
+	}
+	return 0, false
+}
+
+func parseBasicLineNumber(raw string) (int, bool) {
+	parts := basicLineNumberRE.FindStringSubmatch(raw)
+	if len(parts) < 2 {
+		return 0, false
+	}
+	lineNumber, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, false
+	}
+	return lineNumber, true
 }
 
 func cursorOffset(text string, row, col int) int {

@@ -47,6 +47,13 @@ Stack confirmada:
   - `Utilities > Macros` (`MP/MR/MD/MS/MO/MY/ME`)
   - `Additional` (`AC/AH/AS/AG/AN`)
   - `Help` (`HR/HM/HO`) abrindo `README.md`, `MANUAL.md`, `OUTLINE.md` com render Markdown.
+- **RULE refeito como regua flutuante**:
+  - Overlay draggable no editor.
+  - Escala visual fixa de 132 colunas.
+  - Atalho atual `Ctrl+Q,R`.
+  - `ESC` sai do modo RULE.
+  - `B` / `B` mede um bloco inclusivo em caracteres.
+  - `Ctrl+O,L` passou a ser `Document Beginning`.
 
 ## 4) Linha do tempo funcional (resumo ate o ponto atual)
 
@@ -61,15 +68,30 @@ Stack confirmada:
 7. Versionamento inicial `0.1.0`, com `CHANGELOG.md` e secao `Unreleased` para fluxo continuo.
 8. Menus da tela inicial ampliados (Utilities/Macros, Additional e Help com docs em Markdown).
 9. Correcao do gutter de linhas em `internal/ui/linenumbers.go` (numeracao volta a atualizar corretamente).
+10. Implementacao da regua flutuante (`RULE`) como overlay independente da regua antiga.
+11. Refino visual da regua:
+   - escala alinhada por celulas de caractere
+   - marcadores de dezena
+   - linha guia verde
+   - titulo no rodape
+12. Fluxo de medicao de bloco dentro do RULE com tecla `B`.
+13. Remapeamento de atalhos:
+   - `Ctrl+Q,R` = RULE
+   - `Ctrl+O,L` = Document Beginning
+14. Limpeza editorial da documentacao `.md` para refletir o comportamento atual da regua.
 
 ## 5) Mapeamento de teclas WordStar (estado atual)
 
 ### Implementado (relevante para continuidade)
 
 - Navegacao basica: `Ctrl+S/D/E/X`, `Ctrl+R/C`
-- Arquivo: `Ctrl+K,S/T/D`, `Ctrl+O,K`, `Ctrl+O,?`, `Ctrl+P,?`, `Ctrl+K,Q,X`
+- Arquivo / navegacao direta: `Ctrl+K,S/T/D`, `Ctrl+O,K`, `Ctrl+O,?`, `Ctrl+O,L`, `Ctrl+P,?`, `Ctrl+K,Q,X`
 - Abas: `Ctrl+N`, `Ctrl+W`
 - Edicao: `Ctrl+Y`, `Ctrl+T`, `Ctrl+Q,Y`, `Ctrl+Q,[DEL]`
+- RULE:
+  - `Ctrl+Q,R` = Toggle RULE
+  - `ESC` = Sair do RULE
+  - `B` = Marcar inicio/fim de bloco enquanto RULE esta ativo
 - Blocos WS7:
   - `Ctrl+K,B` = Mark Block Begin
   - `Ctrl+K,K` = Mark Block End
@@ -132,6 +154,12 @@ Validacao funcional recomendada no app:
 - Na tela inicial, validar `Help` (`HR/HM/HO`) abrindo Markdown de `README.md`, `MANUAL.md`, `OUTLINE.md`.
 - Na tela inicial, validar `Utilities > Macros` e `Additional` com itens corretos.
 - No editor, validar se o gutter mostra todas as linhas e acompanha rolagem/cursor.
+- No editor, validar RULE:
+  - `Ctrl+Q,R` abre/fecha a regua
+  - `ESC` sai do modo RULE
+  - Drag move a regua
+  - `B` / `B` mostra contagem inclusiva de bloco
+  - medicao multi-linha funciona
 
 ## 8) Prompt de retomada para colar no Copilot no novo PC
 
@@ -149,6 +177,7 @@ Objetivo atual:
 - Continuar evolucao dos comandos WordStar e UX do editor.
 - Preservar separacao entre clipboard interno WS7 (blocos) e clipboard do Windows.
 - Manter toda a UI em ingles.
+- Preservar RULE como ferramenta flutuante separada da navegacao classica WordStar.
 
 Ao propor mudancas:
 - Liste arquivos/simbolos afetados.
@@ -158,7 +187,7 @@ Ao propor mudancas:
 
 ## 9) Proximos passos prioritarios
 
-1. Destacar visualmente bloco selecionado no texto (alem da status bar).
+1. Destacar visualmente no texto o bloco medido/selecionado pelo fluxo do RULE.
 2. Implementar "Go to Beginning/End of Block" (`Ctrl+Q,B` / `Ctrl+Q,K`).
 3. Revisar comandos `[NI]` e priorizar os mais usados.
 4. Padronizar testes para fluxos de teclado (chords) e regressao de status.

@@ -81,6 +81,11 @@ Current editor features:
   - Toggle it in `View > Show Split Syntax Preview` / `View > Hide Split Syntax Preview`.
   - Inline syntax highlighting remains active in normal (non-split) mode.
 - `Utilities > Configure...` is also available inside the editor with the same settings.
+- `Utilities > RULE (Regua)` opens the floating ruler overlay.
+  - It uses a fixed 132-column visual scale.
+  - It is draggable on screen.
+  - It tracks live character distance from the cursor position where RULE was enabled.
+  - While RULE is active, `B` marks block start / block end for inclusive span counting.
 - Tab close confirmation when unsaved changes exist.
 - Global exit confirmation now checks all open tabs for unsaved changes before closing the app.
 - Dirty tab indicator with `*` and warning icon.
@@ -100,6 +105,7 @@ Current editor features:
 | `Ctrl+Y` | Delete line |
 | `Ctrl+N` | New tab (opens type selector; default `*.asc`) |
 | `Ctrl+W` | Close current tab |
+| `Ctrl+O` `Ctrl+L` | Document beginning |
 
 ### File Commands (WordStar)
 
@@ -113,12 +119,48 @@ Current editor features:
 | `Ctrl+P` `Ctrl+?` | Change Printer |
 | `Ctrl+K` `Ctrl+Q` `Ctrl+X` | Exit |
 
+### RULE Mode
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+Q` `Ctrl+R` | Toggle floating ruler on/off |
+| `ESC` | Exit RULE mode |
+| `B` | Mark block start / block end while RULE is active |
+
+## 6) RULE Mode (Floating Ruler)
+
+`RULE` is a floating measurement tool for counting characters visually.
+
+Current behavior:
+
+- opens as an overlay inside the editor
+- can be dragged away from the text you are inspecting
+- shows a 132-column scale
+- updates distance live as the cursor moves
+- supports inclusive block measurement with `B` / `B`
+- works across multiple lines
+
+### Typical use
+
+1. Put the cursor where measurement should begin.
+2. Press `Ctrl+Q` `Ctrl+R`.
+3. Move the cursor and read the live distance.
+4. If you want a full inclusive span, press `B` at the first point and `B` again at the last point.
+5. Press `ESC` to leave RULE mode.
+
+### Practical examples
+
+- measure the visible length of a string between quotes
+- validate fixed-width fields
+- confirm indentation width
+- count a multi-line span
+
 ### Save / Copy dialog behavior
 
 - `Save As` and file copy dialogs now suggest the `.asc` extension explicitly for new MSX-BASIC ASCII documents.
 - These dialogs accept both `.asc` and `.amx`, keeping the workflow ready for future `.amx` file creation.
 
-## 6) Recommended Workflow
+## 7) Recommended Workflow
 
 1. Start WS7.
 2. Open a file from the startup screen.
@@ -126,7 +168,7 @@ Current editor features:
 4. Use `Ctrl+K` `Ctrl+S` to save frequently.
 5. Use `Ctrl+W` to close the current tab safely.
 
-## 7) Notes
+## 8) Notes
 
 - The project is evolving with a focus on WordStar 7 interaction fidelity.
 - Not all legacy commands are complete yet; pending items appear as "next block" in the app.

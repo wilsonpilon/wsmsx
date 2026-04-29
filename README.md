@@ -27,6 +27,13 @@ Text editor in Go + Fyne, inspired by the WordStar 7.0 workflow, focused on MSX-
 ## Recent Changes
 
 - Current release is `0.1.7`.
+- `Utilities > RULE (Regua)` now opens a **floating 132-column character ruler** inside the editor.
+- `RULE` current workflow:
+  - `Ctrl+Q,R` toggles the ruler.
+  - `ESC` exits RULE mode.
+  - `B` marks block start / block end for inclusive span measurement.
+  - The ruler is draggable and measures across multiple lines.
+- `Ctrl+O,L` is now used for `Document Beginning`.
 - `Utilities > Configure...` is now available in both the Opening Menu and Editor Menu.
 - Configure dialog now supports:
   - Editor theme selection (`Dark` / `Light`).
@@ -63,6 +70,8 @@ build.ps1                        Windows build
 - Full operational guide: `MANUAL.md`
 - Project continuity and migration state: `OUTLINE.md`
 - Release notes and current pending changes: `CHANGELOG.md`
+- Floating ruler technical notes: `FLOATING_RULER.md`
+- Floating ruler quick guide: `FLOATING_RULER_GUIDE.md`
 
 ## Versioning and Releases
 

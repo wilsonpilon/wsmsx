@@ -208,13 +208,14 @@ func TestResolveCtrlQNav(t *testing.T) {
 		want   Command
 	}{
 		{"A", CmdFindReplace},
+		{"D", CmdBasicDelete},
+		{"E", CmdBasicRenum},
 		{"G", CmdGoToChar},
 		{"I", CmdGoToPage},
 		{"P", CmdGoPrevPosition},
 		{"V", CmdGoLastFindReplace},
 		{"B", CmdGoBlockBegin},
 		{"K", CmdGoBlockEnd},
-		{"R", CmdGoDocBegin},
 		{"C", CmdGoDocEnd},
 		{"W", CmdScrollContUp},
 		{"Z", CmdScrollContDown},
@@ -272,5 +273,49 @@ func TestResolveCtrlONPrefix(t *testing.T) {
 	}
 	if cmd != CmdEditNote {
 		t.Fatalf("expected %s, got %s", CmdEditNote, cmd)
+	}
+}
+
+func TestResolveChordCtrlOCtrlL(t *testing.T) {
+	r := NewResolver()
+	cmd, pending, err := r.Resolve("O")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cmd != CmdPrefixO || !pending {
+		t.Fatalf("Ctrl+O prefix should remain pending")
+	}
+
+	cmd, pending, err = r.Resolve("L")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if pending {
+		t.Fatalf("did not expect pending=true")
+	}
+	if cmd != CmdGoDocBegin {
+		t.Fatalf("expected %s, got %s", CmdGoDocBegin, cmd)
+	}
+}
+
+func TestResolveChordCtrlQCtrlR(t *testing.T) {
+	r := NewResolver()
+	cmd, pending, err := r.Resolve("Q")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cmd != CmdPrefixQ || !pending {
+		t.Fatalf("Ctrl+Q prefix should remain pending")
+	}
+
+	cmd, pending, err = r.Resolve("R")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if pending {
+		t.Fatalf("did not expect pending=true")
+	}
+	if cmd != CmdRule {
+		t.Fatalf("expected %s, got %s", CmdRule, cmd)
 	}
 }

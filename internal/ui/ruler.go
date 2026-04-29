@@ -15,7 +15,7 @@ import (
 
 // ── Special column marks ──────────────────────────────────────────────────────
 
-var rulerMarkCols = []int{32, 40, 80, 132}
+var rulerMarkCols = []int{32, 40, 80}
 
 func isMarkCol(col int) bool {
 	for _, m := range rulerMarkCols {
@@ -32,11 +32,13 @@ func isMarkCol(col int) bool {
 // position or viewport scroll changes.
 type cursorEntry struct {
 	widget.Entry
-	onCursorMoved    func(row, col int)
-	onViewportOffset func(offsetY float32)
+	onCursorMoved     func(row, col int)
+	onViewportOffset  func(offsetY float32)
+	onSecondaryTapped func(row, col int)
+	onKeyBeforeInput  func(key *fyne.KeyEvent) bool
 	onRuneBeforeInput func(r rune) bool
-	onShortcut       func(shortcut fyne.Shortcut) bool
-	hideText         bool
+	onShortcut        func(shortcut fyne.Shortcut) bool
+	hideText          bool
 }
 
 func newCursorEntry() *cursorEntry {
@@ -162,6 +164,9 @@ func (e *cursorEntry) attachInternalScrollHook() {
 }
 
 func (e *cursorEntry) TypedKey(key *fyne.KeyEvent) {
+	if e.onKeyBeforeInput != nil && e.onKeyBeforeInput(key) {
+		return
+	}
 	e.attachInternalScrollHook()
 	e.Entry.TypedKey(key)
 	e.notify()
@@ -195,6 +200,19 @@ func (e *cursorEntry) Tapped(ev *fyne.PointEvent) {
 	}()
 }
 
+// TappedSecondary handles right-click and emits the resolved cursor position.
+func (e *cursorEntry) TappedSecondary(ev *fyne.PointEvent) {
+	e.attachInternalScrollHook()
+	e.Entry.TappedSecondary(ev)
+	go func() {
+		time.Sleep(32 * time.Millisecond)
+		e.notify()
+		if e.onSecondaryTapped != nil {
+			e.onSecondaryTapped(e.CursorRow, e.CursorColumn)
+		}
+	}()
+}
+
 // ── rulerWidget ───────────────────────────────────────────────────────────────
 
 // rulerWidget draws a three-row column ruler:
@@ -203,7 +221,7 @@ func (e *cursorEntry) Tapped(ev *fyne.PointEvent) {
 //	Row 1  – unit digits      (12345678901234…) with T marks at special cols
 //	Row 2  – cursor indicator (     ^  Col:6  Ln:12)
 //
-// Columns 32, 40, 80 and 132 are highlighted with a semi-transparent overlay.
+// Columns 32, 40 and 80 are highlighted with a semi-transparent overlay.
 // The current cursor column is highlighted in yellow.
 type rulerWidget struct {
 	widget.BaseWidget
@@ -240,11 +258,13 @@ func (r *rulerWidget) CreateRenderer() fyne.WidgetRenderer {
 
 // ── rulerRenderer ─────────────────────────────────────────────────────────────
 
-const rulerMaxCols = 200 // pre-built string length (trimmed at render time)
+const rulerMaxCols = 132
 
 type rulerRenderer struct {
 	w *rulerWidget
 
+	// Background: decade highlights (0,10,20...)
+	decadeRects []*canvas.Rectangle
 	// Background: mark-column highlights
 	markRects []*canvas.Rectangle // one per rulerMarkCol
 	// Background: cursor column highlight
@@ -262,8 +282,9 @@ func (r *rulerRenderer) init() {
 	colorDecade := color.NRGBA{R: 0x88, G: 0x88, B: 0x88, A: 0xff}
 	colorUnit := color.NRGBA{R: 0xbb, G: 0xbb, B: 0xbb, A: 0xff}
 	colorCursor := color.NRGBA{R: 0xff, G: 0xe0, B: 0x00, A: 0xff}
-	colorMark := color.NRGBA{R: 0x44, G: 0x88, B: 0xff, A: 0x55}   // blue, semi-transparent
-	colorCurRect := color.NRGBA{R: 0xff, G: 0xe0, B: 0x00, A: 0x50} // yellow, semi-transparent
+	colorDecadeRect := color.NRGBA{R: 0xff, G: 0xdf, B: 0x66, A: 0x44} // yellow, semi-transparent
+	colorMark := color.NRGBA{R: 0x55, G: 0xcc, B: 0x55, A: 0x66}       // green, semi-transparent
+	colorCurRect := color.NRGBA{R: 0xff, G: 0xe0, B: 0x00, A: 0x50}    // yellow, semi-transparent
 
 	style := fyne.TextStyle{Monospace: true}
 	ts := theme.TextSize()
@@ -280,6 +301,14 @@ func (r *rulerRenderer) init() {
 	r.rowCursor.TextStyle = style
 	r.rowCursor.TextSize = ts
 
+	r.decadeRects = make([]*canvas.Rectangle, 0, (rulerMaxCols/10)+1)
+	for col := 0; col < rulerMaxCols; col += 10 {
+		if isMarkCol(col) {
+			continue
+		}
+		r.decadeRects = append(r.decadeRects, canvas.NewRectangle(colorDecadeRect))
+	}
+
 	r.markRects = make([]*canvas.Rectangle, len(rulerMarkCols))
 	for i := range r.markRects {
 		r.markRects[i] = canvas.NewRectangle(colorMark)
@@ -288,6 +317,9 @@ func (r *rulerRenderer) init() {
 
 	// Objects order: backgrounds first, text on top
 	r.objects = []fyne.CanvasObject{}
+	for _, rect := range r.decadeRects {
+		r.objects = append(r.objects, rect)
+	}
 	for _, rect := range r.markRects {
 		r.objects = append(r.objects, rect)
 	}
@@ -313,11 +345,10 @@ func (r *rulerRenderer) updateText() {
 	for i := range decades {
 		decades[i] = ' '
 	}
-	for col := 10; col <= n; col += 10 {
+	for col := 0; col < n; col += 10 {
 		label := fmt.Sprintf("%d", col)
-		end := col - 1 // 0-based index of the last digit
-		for j := len(label) - 1; j >= 0; j-- {
-			pos := end - (len(label) - 1 - j)
+		for j := 0; j < len(label); j++ {
+			pos := col + j
 			if pos >= 0 && pos < n {
 				decades[pos] = label[j]
 			}
@@ -325,22 +356,17 @@ func (r *rulerRenderer) updateText() {
 	}
 	r.rowDecades.Text = string(decades)
 
-	// ── Row 1: unit digits 1–0, T at special columns ─────────────────────────
+	// ── Row 1: unit digits 0–9 ────────────────────────────────────────────────
 	units := make([]byte, n)
 	for i := range units {
-		col1 := i + 1 // 1-based column number
-		if isMarkCol(col1) {
-			units[i] = 'T'
-		} else {
-			d := col1 % 10
-			units[i] = byte('0' + d) // '0' at multiples of 10
-		}
+		d := i % 10
+		units[i] = byte('0' + d)
 	}
 	r.rowUnits.Text = string(units)
 
 	// ── Row 2: cursor indicator ───────────────────────────────────────────────
 	cursor := r.w.cursorCol // 0-based
-	col1 := cursor + 1      // 1-based for display
+	col0 := cursor          // 0-based for display
 	row1 := r.w.cursorRow + 1
 	if cursor >= 0 && cursor < n {
 		pad := make([]byte, cursor+1)
@@ -348,16 +374,15 @@ func (r *rulerRenderer) updateText() {
 			pad[i] = ' '
 		}
 		pad[cursor] = '^'
-		r.rowCursor.Text = string(pad) + fmt.Sprintf("  Col:%-4d Ln:%-4d", col1, row1)
+		r.rowCursor.Text = string(pad) + fmt.Sprintf("  Col:%-4d Ln:%-4d", col0, row1)
 	} else {
-		r.rowCursor.Text = fmt.Sprintf("  Col:%-4d Ln:%-4d", col1, row1)
+		r.rowCursor.Text = fmt.Sprintf("  Col:%-4d Ln:%-4d", col0, row1)
 	}
 
 	r.rowDecades.Refresh()
 	r.rowUnits.Refresh()
 	r.rowCursor.Refresh()
 }
-
 
 func (r *rulerRenderer) Layout(size fyne.Size) {
 	cw, ch := r.charSize()
@@ -375,9 +400,21 @@ func (r *rulerRenderer) Layout(size fyne.Size) {
 
 	totalH := lh * 3
 
+	// Position decade highlight rectangles
+	decadeIndex := 0
+	for col := 0; col < rulerMaxCols && decadeIndex < len(r.decadeRects); col += 10 {
+		if isMarkCol(col) {
+			continue
+		}
+		x := float32(col) * cw
+		r.decadeRects[decadeIndex].Move(fyne.NewPos(x, 0))
+		r.decadeRects[decadeIndex].Resize(fyne.NewSize(cw, totalH))
+		decadeIndex++
+	}
+
 	// Position mark-column highlight rectangles
 	for i, col := range rulerMarkCols {
-		x := float32(col-1) * cw
+		x := float32(col) * cw
 		r.markRects[i].Move(fyne.NewPos(x, 0))
 		r.markRects[i].Resize(fyne.NewSize(cw, totalH))
 	}
@@ -407,4 +444,3 @@ func (r *rulerRenderer) Destroy() {}
 func (r *rulerRenderer) Objects() []fyne.CanvasObject {
 	return r.objects
 }
-

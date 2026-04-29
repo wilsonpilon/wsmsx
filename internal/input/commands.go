@@ -83,6 +83,8 @@ const (
 	CmdScrollContDown    Command = "scroll_cont_down"
 	CmdDeleteLineLeft    Command = "delete_line_left"
 	CmdDeleteLineRight   Command = "delete_line_right"
+	CmdBasicDelete       Command = "basic_delete"
+	CmdBasicRenum        Command = "basic_renum"
 
 	// ── Note (Ctrl+O,N) ───────────────────────────────────────────────────────
 	CmdEditNote    Command = "edit_note"
@@ -90,6 +92,7 @@ const (
 
 	// ── Settings (Ctrl+O) ─────────────────────────────────────────────────────
 	CmdAutoAlign   Command = "auto_align"
+	CmdRule        Command = "rule"
 	CmdCloseDialog Command = "close_dialog"
 )
 
@@ -205,6 +208,8 @@ func (r *Resolver) Resolve(ctrlKey string) (Command, bool, error) {
 		switch ctrlKey {
 		case "K":
 			return CmdOpenSwitch, false, nil
+		case "L":
+			return CmdGoDocBegin, false, nil
 		case "?":
 			return CmdStatus, false, nil
 		case "A":
@@ -245,6 +250,8 @@ func (r *Resolver) Resolve(ctrlKey string) (Command, bool, error) {
 			return CmdFind, false, nil
 		case "A":
 			return CmdFindReplace, false, nil
+		case "E":
+			return CmdBasicRenum, false, nil
 		case "G":
 			return CmdGoToChar, false, nil
 		case "I":
@@ -265,9 +272,11 @@ func (r *Resolver) Resolve(ctrlKey string) (Command, bool, error) {
 		case "K":
 			return CmdGoBlockEnd, false, nil
 		case "R":
-			return CmdGoDocBegin, false, nil
+			return CmdRule, false, nil
 		case "C":
 			return CmdGoDocEnd, false, nil
+		case "D":
+			return CmdBasicDelete, false, nil
 		case "W":
 			return CmdScrollContUp, false, nil
 		case "Z":

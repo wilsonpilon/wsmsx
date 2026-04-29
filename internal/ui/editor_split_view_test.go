@@ -16,6 +16,7 @@ func makeSplitViewTestTab(name string) *editorTab {
 		entry:         syntaxEntry.entry,
 		syntaxEntry:   syntaxEntry,
 		ruler:         newRulerWidget(),
+		floatingRuler: newFloatingRulerWidget(),
 		lineNums:      newLineNumbersWidget(),
 		status:        widget.NewLabel(""),
 		blockTag:      widget.NewLabel(""),
@@ -95,4 +96,3 @@ func TestSetSyntaxSplitViewNoOpWhenStateUnchanged(t *testing.T) {
 		t.Fatalf("expected content to remain unchanged when split view state does not change")
 	}
 }
-
