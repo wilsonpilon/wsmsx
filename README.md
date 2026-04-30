@@ -33,6 +33,11 @@ Text editor in Go + Fyne, inspired by the WordStar 7.0 workflow, focused on MSX-
   - `ESC` exits RULE mode.
   - `B` marks block start / block end for inclusive span measurement.
   - The ruler is draggable and measures across multiple lines.
+- `Utilities > Calculator` is now available in the editor.
+  - Shortcut: `Ctrl+Q,M`.
+  - Supports arithmetic, power, sqrt/int, bitwise ops, shifts and rotates.
+  - Number input supports decimal, `&H` (hex) and `&B` (binary).
+  - Results are shown in decimal, hexadecimal and binary.
 - `Ctrl+O,L` is now used for `Document Beginning`.
 - `Utilities > Configure...` is now available in both the Opening Menu and Editor Menu.
 - Configure dialog now supports:

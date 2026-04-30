@@ -54,6 +54,12 @@ Stack confirmada:
   - `ESC` sai do modo RULE.
   - `B` / `B` mede um bloco inclusivo em caracteres.
   - `Ctrl+O,L` passou a ser `Document Beginning`.
+- **Calculator em Utilities**:
+  - Atalho `Ctrl+Q,M`.
+  - Dialogo com expressao, ultimo resultado, botoes `Ok`/`Cancel` e help embutido.
+  - Operacoes: aritmetica, bitwise, shifts/rotates e conversoes de base.
+  - Entrada com decimal padrao, `&H` para hexa e `&B` para binario.
+  - Saida em decimal, hexadecimal e binario.
 
 ## 4) Linha do tempo funcional (resumo ate o ponto atual)
 
@@ -79,6 +85,7 @@ Stack confirmada:
    - `Ctrl+Q,R` = RULE
    - `Ctrl+O,L` = Document Beginning
 14. Limpeza editorial da documentacao `.md` para refletir o comportamento atual da regua.
+15. Implementacao da calculadora em `Utilities` (`Ctrl+Q,M`) com parser/avaliador dedicado.
 
 ## 5) Mapeamento de teclas WordStar (estado atual)
 
@@ -92,6 +99,8 @@ Stack confirmada:
   - `Ctrl+Q,R` = Toggle RULE
   - `ESC` = Sair do RULE
   - `B` = Marcar inicio/fim de bloco enquanto RULE esta ativo
+- Calculator:
+  - `Ctrl+Q,M` = Abrir calculadora
 - Blocos WS7:
   - `Ctrl+K,B` = Mark Block Begin
   - `Ctrl+K,K` = Mark Block End
@@ -160,6 +169,11 @@ Validacao funcional recomendada no app:
   - Drag move a regua
   - `B` / `B` mostra contagem inclusiva de bloco
   - medicao multi-linha funciona
+- No editor, validar Calculator:
+  - `Ctrl+Q,M` abre dialogo
+  - `Ok` calcula e mostra Decimal/Hex/Bin
+  - `Cancel` fecha
+  - expressoes com `&H` e `&B` funcionam
 
 ## 8) Prompt de retomada para colar no Copilot no novo PC
 
@@ -178,6 +192,7 @@ Objetivo atual:
 - Preservar separacao entre clipboard interno WS7 (blocos) e clipboard do Windows.
 - Manter toda a UI em ingles.
 - Preservar RULE como ferramenta flutuante separada da navegacao classica WordStar.
+- Evoluir calculadora mantendo compatibilidade com sintaxe de operacoes bitwise.
 
 Ao propor mudancas:
 - Liste arquivos/simbolos afetados.

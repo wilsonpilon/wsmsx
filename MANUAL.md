@@ -89,6 +89,10 @@ Current editor features:
 - Tab close confirmation when unsaved changes exist.
 - Global exit confirmation now checks all open tabs for unsaved changes before closing the app.
 - Dirty tab indicator with `*` and warning icon.
+- `Utilities > Calculator` opens an expression calculator dialog.
+  - Shortcut: `Ctrl+Q` `Ctrl+M`.
+  - Input supports decimal by default, plus `&H` (hex) and `&B` (binary) prefixes.
+  - Output shows Decimal / Hex / Binary.
 
 ## 5) Main Shortcuts
 
@@ -127,6 +131,12 @@ Current editor features:
 | `ESC` | Exit RULE mode |
 | `B` | Mark block start / block end while RULE is active |
 
+### Calculator Mode
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+Q` `Ctrl+M` | Open calculator dialog |
+
 ## 6) RULE Mode (Floating Ruler)
 
 `RULE` is a floating measurement tool for counting characters visually.
@@ -155,12 +165,38 @@ Current behavior:
 - confirm indentation width
 - count a multi-line span
 
+## 7) Calculator Utility
+
+The calculator dialog is available under `Utilities > Calculator`.
+
+Dialog fields:
+
+- `Enter Mathematical Expression to be Calculated:`
+- `Result of Last Calculation`
+- `Ok` (calculate)
+- `Cancel` (close)
+
+Supported operations:
+
+- Arithmetic: `+`, `-`, `*`, `/`, `^`
+- Functions: `sqr(...)`, `int(...)`, `hex(...)`, `bin(...)`, `dec(...)`
+- Bitwise: `XOR`, `AND`, `OR`, `NOT`
+- Shift/rotate: `<<`, `>>`, `shl(a,n)`, `shr(a,n)`, `rol(a,n)`, `ror(a,n)`
+
+Examples:
+
+- `2+3*4`
+- `sqr(81)+2^3`
+- `&H10 + &B11`
+- `NOT 0 AND 15`
+- `(1 << 4) + rol(1,3)`
+
 ### Save / Copy dialog behavior
 
 - `Save As` and file copy dialogs now suggest the `.asc` extension explicitly for new MSX-BASIC ASCII documents.
 - These dialogs accept both `.asc` and `.amx`, keeping the workflow ready for future `.amx` file creation.
 
-## 7) Recommended Workflow
+## 8) Recommended Workflow
 
 1. Start WS7.
 2. Open a file from the startup screen.
@@ -168,7 +204,7 @@ Current behavior:
 4. Use `Ctrl+K` `Ctrl+S` to save frequently.
 5. Use `Ctrl+W` to close the current tab safely.
 
-## 8) Notes
+## 9) Notes
 
 - The project is evolving with a focus on WordStar 7 interaction fidelity.
 - Not all legacy commands are complete yet; pending items appear as "next block" in the app.

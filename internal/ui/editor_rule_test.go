@@ -141,6 +141,24 @@ func TestEditorUtilitiesMenuContainsRule(t *testing.T) {
 	}
 }
 
+func TestEditorUtilitiesMenuContainsCalculator(t *testing.T) {
+	ui := &editorUI{}
+	menu := ui.makeEditorMenu()
+	if menu == nil || len(menu.Items) < 5 {
+		t.Fatalf("expected editor main menu with Utilities")
+	}
+	utilities := menu.Items[4]
+	if utilities == nil || utilities.Label != "Utilities" {
+		t.Fatalf("expected Utilities menu at top-level index 4")
+	}
+	if len(utilities.Items) < 2 {
+		t.Fatalf("expected Utilities to include calculator item")
+	}
+	if got := utilities.Items[1].Label; got != "Calculator                 Ctrl+Q,M" {
+		t.Fatalf("second Utilities item = %q, want Calculator item", got)
+	}
+}
+
 func TestHandleEditorShortcutTriggersRuleChordToggle(t *testing.T) {
 	tab := makeSplitViewTestTab("A")
 	ui := &editorUI{
@@ -181,5 +199,29 @@ func TestHandleEditorShortcutTriggersRuleChordToggle(t *testing.T) {
 	}
 	if got := ui.status.Text; got != "RULE: off" {
 		t.Fatalf("status = %q, want %q", got, "RULE: off")
+	}
+}
+
+func TestHandleEditorShortcutTriggersCalculatorChord(t *testing.T) {
+	tab := makeSplitViewTestTab("A")
+	ui := &editorUI{
+		inEditor:  true,
+		resolver:  input.NewResolver(),
+		status:    widget.NewLabel(""),
+		activeTab: tab,
+		tabState:  map[*container.TabItem]*editorTab{tab.item: tab},
+		entry:     tab.entry,
+	}
+	ui.bindTabEntry(tab)
+	tab.item.Content = ui.tabEditorContent(tab)
+
+	if handled := ui.handleEditorShortcut(&desktop.CustomShortcut{KeyName: fyne.KeyQ, Modifier: fyne.KeyModifierControl}); !handled {
+		t.Fatal("expected Ctrl+Q prefix to be handled")
+	}
+	if !ui.resolver.HasPrefix() {
+		t.Fatal("expected Ctrl+Q prefix state to remain active")
+	}
+	if handled := ui.handleEditorShortcut(&desktop.CustomShortcut{KeyName: fyne.KeyM, Modifier: fyne.KeyModifierControl}); !handled {
+		t.Fatal("expected Ctrl+Q,M to be handled")
 	}
 }

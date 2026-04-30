@@ -23,10 +23,12 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
+	"ws7/internal/basic/calc"
 	"ws7/internal/basic/renum"
 	"ws7/internal/config"
 	"ws7/internal/input"
@@ -156,6 +158,9 @@ type editorUI struct {
 	customSyntaxPalette syntaxPalette
 
 	internalBlockClipboard string
+	calculatorLastResult   string
+	calculatorLastValue    float64
+	calculatorHasLastValue bool
 }
 
 func Run() error {
@@ -879,7 +884,7 @@ func (e *editorUI) bindCtrlKeys() {
 	for _, key := range []fyne.KeyName{
 		fyne.KeyA, fyne.KeyB, fyne.KeyC, fyne.KeyD, fyne.KeyE,
 		fyne.KeyF, fyne.KeyG, fyne.KeyI, fyne.KeyJ, fyne.KeyK,
-		fyne.KeyL, fyne.KeyN, fyne.KeyO, fyne.KeyP, fyne.KeyQ,
+		fyne.KeyL, fyne.KeyM, fyne.KeyN, fyne.KeyO, fyne.KeyP, fyne.KeyQ,
 		fyne.KeyR, fyne.KeyS, fyne.KeyT, fyne.KeyU, fyne.KeyV,
 		fyne.KeyW, fyne.KeyX, fyne.KeyY, fyne.KeyZ,
 	} {
@@ -973,7 +978,7 @@ func (e *editorUI) handleEditorShortcut(shortcut fyne.Shortcut) bool {
 	switch custom.KeyName {
 	case fyne.KeyA, fyne.KeyB, fyne.KeyC, fyne.KeyD, fyne.KeyE,
 		fyne.KeyF, fyne.KeyG, fyne.KeyI, fyne.KeyJ, fyne.KeyK,
-		fyne.KeyL, fyne.KeyN, fyne.KeyO, fyne.KeyP, fyne.KeyQ,
+		fyne.KeyL, fyne.KeyM, fyne.KeyN, fyne.KeyO, fyne.KeyP, fyne.KeyQ,
 		fyne.KeyR, fyne.KeyS, fyne.KeyT, fyne.KeyU, fyne.KeyV,
 		fyne.KeyW, fyne.KeyX, fyne.KeyY, fyne.KeyZ:
 		e.handleCtrl(strings.ToUpper(string(custom.KeyName)))
@@ -1072,6 +1077,7 @@ var cmdChordLabel = map[input.Command]string{
 	input.CmdExit:              "Ctrl+K,Q,X",
 	input.CmdOpenSwitch:        "Ctrl+O,K",
 	input.CmdRule:              "Ctrl+Q,R",
+	input.CmdCalculator:        "Ctrl+Q,M",
 	input.CmdStatus:            "Ctrl+O,?",
 	input.CmdAutoAlign:         "Ctrl+O,A",
 	input.CmdChangePrinter:     "Ctrl+P,?",
@@ -1257,6 +1263,8 @@ func (e *editorUI) execute(cmd input.Command) {
 		e.cmdNotImplemented("Auto Align (Ctrl+O,A)")
 	case input.CmdRule:
 		e.cmdRule()
+	case input.CmdCalculator:
+		e.cmdCalculator()
 	case input.CmdCloseDialog:
 		e.status.SetText("Ctrl+O,Enter: close dialog")
 
@@ -1466,6 +1474,7 @@ func (e *editorUI) makeEditorMenu() *fyne.MainMenu {
 	)
 	utilitiesMenu := fyne.NewMenu("Utilities",
 		fyne.NewMenuItem("RULE (Regua)               Ctrl+Q,R  ESC para sair", func() { e.cmdRule() }),
+		fyne.NewMenuItem("Calculator                 Ctrl+Q,M", func() { e.execute(input.CmdCalculator) }),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Configure...", func() { e.cmdConfigure() }),
 	)
@@ -1585,6 +1594,86 @@ func (e *editorUI) cmdRule() {
 		} else {
 			e.status.SetText("RULE: off")
 		}
+	}
+}
+
+func (e *editorUI) cmdCalculator() {
+	if e.window == nil {
+		return
+	}
+
+	exprEntry := widget.NewEntry()
+	exprEntry.SetPlaceHolder("Example: sqr(81) + (&H10 XOR 3) + (1 << 4)")
+	exprEntry.SetMinRowsVisible(2)
+
+	resultEntry := widget.NewMultiLineEntry()
+	resultEntry.Wrapping = fyne.TextWrapWord
+	resultEntry.Disable()
+	resultEntry.SetMinRowsVisible(3)
+	if strings.TrimSpace(e.calculatorLastResult) != "" {
+		resultEntry.SetText(e.calculatorLastResult)
+	} else {
+		resultEntry.SetText("(no calculation yet)")
+	}
+
+	help := widget.NewLabel(
+		"Supported: +  -  *  /  ^  sqr  int  hex()  bin()  dec()\n" +
+			"Bitwise: XOR  AND  OR  NOT  <<  >>  rol(a,n)  ror(a,n)  shl(a,n)  shr(a,n)\n" +
+			"Number input: decimal by default, &Hxxxx for hex, &Bxxxx for binary. '.' reuses last result.",
+	)
+	help.Wrapping = fyne.TextWrapWord
+
+	var dlg *dialog.CustomDialog
+	calculate := func() {
+		res, err := calc.EvaluateWithLast(exprEntry.Text, e.calculatorLastValue, e.calculatorHasLastValue)
+		if err != nil {
+			msg := "Error: " + err.Error()
+			resultEntry.SetText(msg)
+			if e.status != nil {
+				e.status.SetText("Calculator: " + err.Error())
+			}
+			return
+		}
+		formatted := fmt.Sprintf("Decimal: %s\nHex: %s\nBinary: %s", res.Decimal, res.Hex, res.Binary)
+		e.calculatorLastResult = formatted
+		e.calculatorLastValue = res.Value
+		e.calculatorHasLastValue = true
+		resultEntry.SetText(formatted)
+		if e.status != nil {
+			e.status.SetText("Calculator: calculated")
+		}
+	}
+	exprEntry.OnSubmitted = func(string) {
+		calculate()
+	}
+	okBtn := widget.NewButton("=", func() {
+		calculate()
+	})
+	cancelBtn := widget.NewButton("Cancel", func() {
+		if dlg != nil {
+			dlg.Hide()
+		}
+		if e.status != nil {
+			e.status.SetText("Calculator: canceled")
+		}
+	})
+
+	content := container.NewVBox(
+		widget.NewLabel("Enter Mathematical Expression to be Calculated:"),
+		exprEntry,
+		widget.NewSeparator(),
+		widget.NewLabel("Result of Last Calculation:"),
+		resultEntry,
+		widget.NewSeparator(),
+		help,
+		container.NewHBox(layout.NewSpacer(), okBtn, cancelBtn),
+	)
+
+	dlg = dialog.NewCustomWithoutButtons("Calculator", content, e.window)
+	dlg.Resize(fyne.NewSize(760, 360))
+	dlg.Show()
+	if e.status != nil {
+		e.status.SetText("Calculator: ready")
 	}
 }
 

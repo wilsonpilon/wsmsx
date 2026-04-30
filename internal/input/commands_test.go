@@ -319,3 +319,25 @@ func TestResolveChordCtrlQCtrlR(t *testing.T) {
 		t.Fatalf("expected %s, got %s", CmdRule, cmd)
 	}
 }
+
+func TestResolveChordCtrlQCtrlM(t *testing.T) {
+	r := NewResolver()
+	cmd, pending, err := r.Resolve("Q")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cmd != CmdPrefixQ || !pending {
+		t.Fatalf("Ctrl+Q prefix should remain pending")
+	}
+
+	cmd, pending, err = r.Resolve("M")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if pending {
+		t.Fatalf("did not expect pending=true")
+	}
+	if cmd != CmdCalculator {
+		t.Fatalf("expected %s, got %s", CmdCalculator, cmd)
+	}
+}

@@ -93,6 +93,7 @@ const (
 	// ── Settings (Ctrl+O) ─────────────────────────────────────────────────────
 	CmdAutoAlign   Command = "auto_align"
 	CmdRule        Command = "rule"
+	CmdCalculator  Command = "calculator"
 	CmdCloseDialog Command = "close_dialog"
 )
 
@@ -256,6 +257,8 @@ func (r *Resolver) Resolve(ctrlKey string) (Command, bool, error) {
 			return CmdGoToChar, false, nil
 		case "I":
 			return CmdGoToPage, false, nil
+		case "M":
+			return CmdCalculator, false, nil
 		case "=":
 			return CmdGoToFontTag, false, nil
 		case "<":
