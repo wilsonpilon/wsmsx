@@ -44,6 +44,7 @@ Text editor in Go + Fyne, inspired by the WordStar 7.0 workflow, focused on MSX-
   - `Run MSX Encoding` - handle MSX text encoding.
   - Tool paths accept direct file paths or directories with auto-detection fallback.
 - **Utilities > RULE (Regua)**: Floating 132-column character ruler overlay.
+- **Top fixed ruler alignment fix**: The ruler now starts at text column 1 (right after the line-number gutter), instead of the far-left window edge.
 - **Utilities > Calculator (Ctrl+Q,M)**: Expression calculator with arithmetic, bitwise, shifts/rotates.
 - Editor `View` menu includes optional split syntax mode (Show/Hide Split Syntax Preview).
 - Exiting the app checks unsaved changes across all open tabs.

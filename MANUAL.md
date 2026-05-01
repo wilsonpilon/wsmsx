@@ -98,6 +98,7 @@ Current editor features:
   - Auto-detection of tool executable/script when folder is selected.
   - `Test` button per tool to pre-validate path (lightweight probe execution).
 - `Utilities > RULE (Regua)` opens the floating ruler overlay.
+  - The fixed top ruler starts at text column 1 (after the line-number gutter).
   - It uses a fixed 132-column visual scale.
   - It is draggable on screen.
   - It tracks live character distance from the cursor position where RULE was enabled.
@@ -106,6 +107,10 @@ Current editor features:
   - Shortcut: `Ctrl+Q` `Ctrl+M`.
   - Input supports decimal by default, plus `&H` (hex) and `&B` (binary) prefixes.
   - Output shows Decimal / Hex / Binary.
+- `Utilities > Word Count` displays text statistics:
+  - Number of words detected in the active editor.
+  - Total character count (bytes).
+  - (Future: tokenized byte count for MSX BASIC).
 - `Utilities > Open openMSX`: Launch MSX emulator (detached).
 - `Utilities > Run msxbas2rom`: Convert MSX BASIC files.
 - `Utilities > Run BASIC Dignified`: Transpile BASIC Dignified syntax.
@@ -243,6 +248,7 @@ Current behavior:
 - opens as an overlay inside the editor
 - can be dragged away from the text you are inspecting
 - shows a 132-column scale
+- fixed top ruler is aligned to the editable text area (starts at text column 1, after the line-number gutter)
 - updates distance live as the cursor moves
 - supports inclusive block measurement with `B` / `B`
 - works across multiple lines

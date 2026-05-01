@@ -67,7 +67,7 @@ Absolute positions include the newline.
 ```text
 Editor tab
    ├─ main editor content
-   ├─ line numbers
+   ├─ line-number gutter
    ├─ status bar
    └─ floating ruler overlay (when RULE is on)
 ```

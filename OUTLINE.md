@@ -73,7 +73,7 @@ Stack confirmada:
 6. Testes unitarios adicionados/atualizados em `internal/ui/editor_block_test.go`.
 7. Versionamento inicial `0.1.0`, com `CHANGELOG.md` e secao `Unreleased` para fluxo continuo.
 8. Menus da tela inicial ampliados (Utilities/Macros, Additional e Help com docs em Markdown).
-9. Correcao do gutter de linhas em `internal/ui/linenumbers.go` (numeracao volta a atualizar corretamente).
+9. Correcao do gutter de números de linha em `internal/ui/linenumbers.go` (numeracao volta a atualizar corretamente).
 10. Implementacao da regua flutuante (`RULE`) como overlay independente da regua antiga.
 11. Refino visual da regua:
     - escala alinhada por celulas de caractere
@@ -101,6 +101,9 @@ Stack confirmada:
     - Aceita arquivo direto ou folder com autodeteccao.
     - Rotinas de lancamento: `openMSX` (detached), `msxbas2rom`, `BASIC Dignified`, `MSX Encoding`.
     - Suporte a diferentes runners: executaveis, Python, Node.js, npm.
+20. **[BUGFIX]** Correcao de alinhamento da regua fixa do topo:
+    - A regua agora inicia na coluna 1 da area editavel (apos o gutter de números de linha).
+    - Nao comeca mais no canto esquerdo total da janela.
 
 ## 5) Mapeamento de teclas WordStar (estado atual)
 
@@ -177,7 +180,7 @@ Validacao funcional recomendada no app:
 - Conferir se o status mostra `[WS7-BLOCK:*]` e nao mistura com clipboard do Windows.
 - Na tela inicial, validar `Help` (`HR/HM/HO`) abrindo Markdown de `README.md`, `MANUAL.md`, `OUTLINE.md`.
 - Na tela inicial, validar `Utilities > Macros` e `Additional` com itens corretos.
-- No editor, validar se o gutter mostra todas as linhas e acompanha rolagem/cursor.
+- No editor, validar se o gutter de números de linha mostra todas as linhas e acompanha rolagem/cursor.
 - No editor, validar RULE:
   - `Ctrl+Q,R` abre/fecha a regua
   - `ESC` sai do modo RULE

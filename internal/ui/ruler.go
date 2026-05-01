@@ -15,7 +15,7 @@ import (
 
 // ── Special column marks ──────────────────────────────────────────────────────
 
-var rulerMarkCols = []int{32, 40, 80}
+var rulerMarkCols = []int{32, 40, 80, 132, 255}
 
 func isMarkCol(col int) bool {
 	for _, m := range rulerMarkCols {
@@ -324,7 +324,7 @@ func (r *rulerWidget) CreateRenderer() fyne.WidgetRenderer {
 
 // ── rulerRenderer ─────────────────────────────────────────────────────────────
 
-const rulerMaxCols = 132
+const rulerMaxCols = 255
 
 type rulerRenderer struct {
 	w *rulerWidget

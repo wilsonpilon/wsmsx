@@ -8,6 +8,15 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Added `Utilities > Word Count` command to display text statistics (words and byte count).
+  - Future enhancement: tokenized byte count for MSX BASIC format.
+
+### Fixed
+
+- Fixed top ruler alignment so it starts at text column 1 (after the line-number gutter) instead of the far-left editor edge.
+
 ## [0.1.9] - 2026-05-01
 
 ### Added
@@ -133,7 +142,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 #### UI / Theme
 - Source Code Pro Bold monospace font from bundled TTF resources.
-- Ruler widget, line numbers gutter, status bar per tab.
+- Ruler widget, line-number gutter, status bar per tab.
 
 ### Fixed
 - All UI strings translated from Portuguese to English.

@@ -10,14 +10,14 @@ func TestRulerUses132ColumnsAndZeroBasedDigits(t *testing.T) {
 	rr := &rulerRenderer{w: rw}
 	rr.init()
 
-	if got := len(rr.rowUnits.Text); got != 132 {
-		t.Fatalf("units length = %d, want 132", got)
+	if got := len(rr.rowUnits.Text); got != 255 {
+		t.Fatalf("units length = %d, want 255", got)
 	}
 	if got := rr.rowUnits.Text[:20]; got != "01234567890123456789" {
 		t.Fatalf("units prefix = %q, want %q", got, "01234567890123456789")
 	}
-	if got := len(rr.markRects); got != 3 {
-		t.Fatalf("mark rect count = %d, want 3", got)
+	if got := len(rr.markRects); got != 5 {
+		t.Fatalf("mark rect count = %d, want 5", got)
 	}
 }
 

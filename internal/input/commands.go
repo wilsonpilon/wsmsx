@@ -99,6 +99,7 @@ const (
 	CmdAutoAlign          Command = "auto_align"
 	CmdRule               Command = "rule"
 	CmdCalculator         Command = "calculator"
+	CmdWordCount          Command = "word_count"
 	CmdStyleBold          Command = "style_bold"
 	CmdStyleFont          Command = "style_font"
 	CmdInsertExtendedChar Command = "insert_extended_char"

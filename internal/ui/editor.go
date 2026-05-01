@@ -485,7 +485,7 @@ func (e *editorUI) tabEditorContent(tab *editorTab) fyne.CanvasObject {
 	}
 	statusBar := container.NewBorder(nil, nil, nil, container.NewHBox(tab.blockTag, tab.clipTag), tab.status)
 
-	top := fyne.CanvasObject(nil)
+	top := container.New(&rulerStartAtTextLayout{gutter: tab.lineNums}, tab.ruler)
 
 	mainContent := container.NewBorder(top, statusBar, tab.lineNums, nil, tab.entry)
 
@@ -494,6 +494,50 @@ func (e *editorUI) tabEditorContent(tab *editorTab) fyne.CanvasObject {
 		return container.NewStack(mainContent, tab.floatingRuler)
 	}
 	return mainContent
+}
+
+// rulerStartAtTextLayout keeps the ruler aligned with the editable text area
+// by reserving the same leading width used by the line-number gutter.
+type rulerStartAtTextLayout struct{ gutter fyne.CanvasObject }
+
+func (l *rulerStartAtTextLayout) gutterWidth() float32 {
+	if l == nil || l.gutter == nil {
+		return 0
+	}
+	return l.gutter.MinSize().Width
+}
+
+func (l *rulerStartAtTextLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	var child fyne.Size
+	for _, obj := range objects {
+		if obj == nil || !obj.Visible() {
+			continue
+		}
+		ms := obj.MinSize()
+		if ms.Width > child.Width {
+			child.Width = ms.Width
+		}
+		if ms.Height > child.Height {
+			child.Height = ms.Height
+		}
+	}
+	child.Width += l.gutterWidth()
+	return child
+}
+
+func (l *rulerStartAtTextLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	x := l.gutterWidth()
+	width := size.Width - x
+	if width < 0 {
+		width = 0
+	}
+	for _, obj := range objects {
+		if obj == nil {
+			continue
+		}
+		obj.Move(fyne.NewPos(x, 0))
+		obj.Resize(fyne.NewSize(width, size.Height))
+	}
 }
 
 func absoluteCharPos(text string, row, col int) int {
@@ -1204,6 +1248,8 @@ func (e *editorUI) execute(cmd input.Command) {
 		e.cmdRule()
 	case input.CmdCalculator:
 		e.cmdCalculator()
+	case input.CmdWordCount:
+		e.cmdWordCount()
 	case input.CmdCloseDialog:
 		e.status.SetText("Ctrl+O,Enter: close dialog")
 
@@ -1409,6 +1455,7 @@ func (e *editorUI) makeEditorMenu() *fyne.MainMenu {
 	utilitiesMenu := fyne.NewMenu("Utilities",
 		fyne.NewMenuItem("RULE                       Ctrl+Q,R  ESC to exit", func() { e.cmdRule() }),
 		fyne.NewMenuItem("Calculator                 Ctrl+Q,M", func() { e.execute(input.CmdCalculator) }),
+		fyne.NewMenuItem("Word Count", func() { e.execute(input.CmdWordCount) }),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Open openMSX", func() { e.cmdLaunchOpenMSX() }),
 		fyne.NewMenuItem("Run msxbas2rom", func() { e.cmdLaunchMSXBas2Rom() }),
@@ -1537,6 +1584,44 @@ func (e *editorUI) cmdCalculator() {
 	if e.status != nil {
 		e.status.SetText("Calculator: ready")
 	}
+}
+
+func (e *editorUI) cmdWordCount() {
+	if e.window == nil || e.entry == nil {
+		return
+	}
+
+	text := e.entry.Text
+	wordCount, charCount := countWordsAndChars(text)
+
+	stats := fmt.Sprintf("Words:      %d\nCharacters: %d bytes", wordCount, charCount)
+	result := widget.NewMultiLineEntry()
+	result.SetText(stats)
+	result.Disable()
+	result.SetMinRowsVisible(8)
+
+	dialog.ShowCustom("Word Count", "Close", result, e.window)
+	if e.status != nil {
+		e.status.SetText(fmt.Sprintf("Word Count: %d words, %d bytes", wordCount, charCount))
+	}
+}
+
+func countWordsAndChars(text string) (int, int) {
+	words := 0
+	chars := len(text)
+	inWord := false
+
+	for _, r := range text {
+		isSpace := r == ' ' || r == '\t' || r == '\n' || r == '\r'
+		if !isSpace && !inWord {
+			words++
+			inWord = true
+		} else if isSpace && inWord {
+			inWord = false
+		}
+	}
+
+	return words, chars
 }
 
 func (e *editorUI) makeEditorEditMenu() *fyne.Menu {
