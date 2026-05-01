@@ -6,10 +6,16 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
+	"runtime/debug"
+	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -44,7 +50,13 @@ const settingEditorFontFamilyKey = "editor_font_family"
 const settingEditorFontWeightKey = "editor_font_weight"
 const settingEditorFontSizeKey = "editor_font_size"
 const settingEditorFontItalicKey = "editor_font_italic"
+const settingWS7BaseDirKey = "tool_ws7_base_dir"
 const settingOpenMSXExeKey = "tool_openmsx_exe"
+const settingOpenMSXMachineKey = "tool_openmsx_machine"
+const settingOpenMSXExt1Key = "tool_openmsx_ext_1"
+const settingOpenMSXExt2Key = "tool_openmsx_ext_2"
+const settingOpenMSXExt3Key = "tool_openmsx_ext_3"
+const settingOpenMSXExt4Key = "tool_openmsx_ext_4"
 const settingMSXBas2RomExeKey = "tool_msxbas2rom_exe"
 const settingBasicDignifiedExeKey = "tool_basic_dignified_exe"
 const settingMSXEncodingExeKey = "tool_msx_encoding_exe"
@@ -55,6 +67,25 @@ const defaultRenumFromLine = 0
 var msxSourceExtensions = []string{defaultMSXBasicASCIIExt, ".amx", ".bas", ".ldr", ".txt"}
 
 var basicLineNumberRE = regexp.MustCompile(`^\s*(\d+)`)
+
+type remoteHelpDoc struct {
+	Title string
+	URL   string
+	Slug  string
+}
+
+var openMSXRemoteHelpDocs = []remoteHelpDoc{
+	{Title: "Setup Guide", URL: "https://openmsx.org/manual/setup.html", Slug: "setup-guide"},
+	{Title: "User's Manual", URL: "https://openmsx.org/manual/user.html", Slug: "user-manual"},
+	{Title: "Console Command Reference", URL: "https://openmsx.org/manual/commands.html", Slug: "console-command-reference"},
+	{Title: "Disk Manipulator", URL: "https://openmsx.org/manual/diskmanipulator.html", Slug: "disk-manipulator"},
+	{Title: "Control openMSX", URL: "https://openmsx.org/manual/openmsx-control.html", Slug: "control-openmsx"},
+}
+
+const (
+	openMSXHelpRefreshInterval = 24 * time.Hour
+	openMSXHelpCacheMaxAge     = 30 * 24 * time.Hour
+)
 
 type newFileType struct {
 	ID         string
@@ -126,6 +157,7 @@ type editorUI struct {
 	resolver         *input.Resolver
 	store            *sqlite.Store
 	browser          *fileBrowser
+	openMSXBridge    *openMSXBridgeSession
 
 	filePath        string
 	dirty           bool
@@ -1465,7 +1497,26 @@ func (e *editorUI) makeEditorMenu() *fyne.MainMenu {
 		fyne.NewMenuItem("Configure...", func() { e.cmdConfigure() }),
 	)
 
-	return fyne.NewMainMenu(fileMenu, editMenu, insertMenu, styleMenu, utilitiesMenu)
+	openMSXHelpItem := fyne.NewMenuItem("openMSX", nil)
+	lastUpdateItem := fyne.NewMenuItem(openMSXHelpLastUpdatedLabel(), func() {})
+	openMSXHelpItem.ChildMenu = fyne.NewMenu("",
+		lastUpdateItem,
+		fyne.NewMenuItemSeparator(),
+		fyne.NewMenuItem("Setup Guide", func() { e.cmdOpenMSXHelpDoc(openMSXRemoteHelpDocs[0]) }),
+		fyne.NewMenuItem("User's Manual", func() { e.cmdOpenMSXHelpDoc(openMSXRemoteHelpDocs[1]) }),
+		fyne.NewMenuItem("Console Command Reference", func() { e.cmdOpenMSXHelpDoc(openMSXRemoteHelpDocs[2]) }),
+		fyne.NewMenuItem("Disk Manipulator", func() { e.cmdOpenMSXHelpDoc(openMSXRemoteHelpDocs[3]) }),
+		fyne.NewMenuItem("Control openMSX", func() { e.cmdOpenMSXHelpDoc(openMSXRemoteHelpDocs[4]) }),
+		fyne.NewMenuItemSeparator(),
+		fyne.NewMenuItem("Update Help", func() { e.cmdOpenMSXHelpUpdate() }),
+	)
+
+	helpMenu := fyne.NewMenu("HELP",
+		fyne.NewMenuItem("ABOUT", func() { e.cmdAboutWS7() }),
+		openMSXHelpItem,
+	)
+
+	return fyne.NewMainMenu(fileMenu, editMenu, insertMenu, styleMenu, utilitiesMenu, helpMenu)
 }
 
 func (e *editorUI) setRuleMode(tab *editorTab, enabled bool) {
@@ -1856,6 +1907,41 @@ func (e *editorUI) applyCurrentEditorTheme() {
 	}
 }
 
+func (e *editorUI) showHTMLHelp(label, sourceURL string, rawHTML []byte) {
+	segments := htmlToRichTextSegments(rawHTML, sourceURL)
+	rt := widget.NewRichText(segments...)
+	rt.Wrapping = fyne.TextWrapWord
+	scroll := container.NewVScroll(rt)
+
+	viewer := e.fyneApp.NewWindow(fmt.Sprintf("%s - %s", version.Full(), label))
+	viewer.Resize(fyne.NewSize(980, 700))
+	viewer.SetContent(container.NewBorder(
+		widget.NewLabel(sourceURL),
+		nil,
+		nil,
+		nil,
+		scroll,
+	))
+	viewer.Show()
+}
+
+func (e *editorUI) showMarkdownHelp(label, source, markdown string) {
+	md := widget.NewRichTextFromMarkdown(markdown)
+	md.Wrapping = fyne.TextWrapWord
+	scroll := container.NewVScroll(md)
+
+	viewer := e.fyneApp.NewWindow(fmt.Sprintf("%s - %s", version.Full(), label))
+	viewer.Resize(fyne.NewSize(920, 680))
+	viewer.SetContent(container.NewBorder(
+		widget.NewLabel(source),
+		nil,
+		nil,
+		nil,
+		scroll,
+	))
+	viewer.Show()
+}
+
 func (e *editorUI) openMarkdownHelpDoc(fileName, label string) {
 	path, err := findProjectDocPath(fileName)
 	if err != nil {
@@ -1869,20 +1955,233 @@ func (e *editorUI) openMarkdownHelpDoc(fileName, label string) {
 		return
 	}
 
-	md := widget.NewRichTextFromMarkdown(string(data))
-	md.Wrapping = fyne.TextWrapWord
-	scroll := container.NewVScroll(md)
+	e.showMarkdownHelp(label, filepath.Base(path), string(data))
+}
 
-	viewer := e.fyneApp.NewWindow(fmt.Sprintf("%s - %s", version.Full(), label))
-	viewer.Resize(fyne.NewSize(920, 680))
-	viewer.SetContent(container.NewBorder(
-		widget.NewLabel(filepath.Base(path)),
-		nil,
-		nil,
-		nil,
-		scroll,
-	))
-	viewer.Show()
+func buildInfoSummary() (compiledAt, goVersion, target string) {
+	compiledAt = "n/a"
+	goVersion = runtime.Version()
+	target = runtime.GOOS + "/" + runtime.GOARCH
+
+	if info, ok := debug.ReadBuildInfo(); ok {
+		if strings.TrimSpace(info.GoVersion) != "" {
+			goVersion = strings.TrimSpace(info.GoVersion)
+		}
+		goos := ""
+		goarch := ""
+		for _, s := range info.Settings {
+			switch s.Key {
+			case "vcs.time":
+				if ts, err := time.Parse(time.RFC3339, s.Value); err == nil {
+					compiledAt = ts.Local().Format("2006-01-02 15:04:05 MST")
+				}
+			case "GOOS":
+				goos = strings.TrimSpace(s.Value)
+			case "GOARCH":
+				goarch = strings.TrimSpace(s.Value)
+			}
+		}
+		if goos != "" && goarch != "" {
+			target = goos + "/" + goarch
+		}
+	}
+
+	return compiledAt, goVersion, target
+}
+
+func (e *editorUI) cmdAboutWS7() {
+	compiledAt, goVersion, target := buildInfoSummary()
+	about := strings.Join([]string{
+		"# WS7",
+		"",
+		"- Version: `" + version.Version + "`",
+		"- Build: `" + version.Build() + "`",
+		"- Compiled at: `" + compiledAt + "`",
+		"- Go compiler: `" + goVersion + "`",
+		"- Target OS/Arch: `" + target + "`",
+	}, "\n")
+	e.showMarkdownHelp("ABOUT", "WS7 build information", about)
+}
+
+func openMSXHelpCacheDir() string {
+	if base, err := os.UserCacheDir(); err == nil && strings.TrimSpace(base) != "" {
+		return filepath.Join(base, "ws7", "help", "openmsx")
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		return filepath.Join(cwd, "res", "help", "openmsx")
+	}
+	return filepath.Join(os.TempDir(), "ws7", "help", "openmsx")
+}
+
+func openMSXHelpFilePath(doc remoteHelpDoc) string {
+	name := strings.TrimSpace(doc.Slug)
+	if name == "" {
+		name = "doc"
+	}
+	return filepath.Join(openMSXHelpCacheDir(), name+".html")
+}
+
+func openMSXHelpLastUpdated() (time.Time, bool) {
+	var latest time.Time
+	found := false
+	for _, doc := range openMSXRemoteHelpDocs {
+		path := openMSXHelpFilePath(doc)
+		st, err := os.Stat(path)
+		if err != nil || st.IsDir() {
+			continue
+		}
+		if !found || st.ModTime().After(latest) {
+			latest = st.ModTime()
+			found = true
+		}
+	}
+	return latest, found
+}
+
+func openMSXHelpLastUpdatedLabel() string {
+	if ts, ok := openMSXHelpLastUpdated(); ok {
+		return "Ultima atualizacao: " + ts.Local().Format("2006-01-02 15:04")
+	}
+	return "Ultima atualizacao: n/a"
+}
+
+func pruneOpenMSXHelpCacheByAge(maxAge time.Duration, now time.Time) (int, error) {
+	if maxAge <= 0 {
+		return 0, nil
+	}
+	cacheDir := openMSXHelpCacheDir()
+	entries, err := os.ReadDir(cacheDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, err
+	}
+
+	removed := 0
+	deadline := now.Add(-maxAge)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if !strings.EqualFold(filepath.Ext(entry.Name()), ".html") {
+			continue
+		}
+		full := filepath.Join(cacheDir, entry.Name())
+		st, statErr := os.Stat(full)
+		if statErr != nil {
+			continue
+		}
+		if st.ModTime().Before(deadline) {
+			if removeErr := os.Remove(full); removeErr == nil {
+				removed++
+			}
+		}
+	}
+	return removed, nil
+}
+
+func downloadOpenMSXHelpHTML(doc remoteHelpDoc) ([]byte, error) {
+	req, err := http.NewRequest(http.MethodGet, doc.URL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "WS7-HelpFetcher/1.0")
+
+	client := &http.Client{Timeout: 20 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return nil, fmt.Errorf("unexpected status: %s", resp.Status)
+	}
+	return io.ReadAll(resp.Body)
+}
+
+func ensureOpenMSXHelpFile(doc remoteHelpDoc, forceUpdate bool) (htmlPath string, source string, err error) {
+	path := openMSXHelpFilePath(doc)
+
+	cacheIsUsable := false
+	cacheIsStale := true
+	if st, statErr := os.Stat(path); statErr == nil && !st.IsDir() {
+		cacheIsUsable = true
+		cacheIsStale = time.Since(st.ModTime()) > openMSXHelpRefreshInterval
+	}
+
+	if !forceUpdate && cacheIsUsable && !cacheIsStale {
+		return path, "cache", nil
+	}
+
+	raw, fetchErr := downloadOpenMSXHelpHTML(doc)
+	if fetchErr != nil {
+		if cacheIsUsable {
+			return path, "cache-offline", nil
+		}
+		return "", "", fetchErr
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", "", err
+	}
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
+		return "", "", err
+	}
+	return path, "online", nil
+}
+
+func (e *editorUI) cmdOpenMSXHelpDoc(doc remoteHelpDoc) {
+	_, _ = pruneOpenMSXHelpCacheByAge(openMSXHelpCacheMaxAge, time.Now())
+	htmlPath, source, err := ensureOpenMSXHelpFile(doc, false)
+	if err != nil {
+		// No cache and no internet — try the live URL in the system browser.
+		if u, pErr := url.Parse(doc.URL); pErr == nil {
+			_ = e.fyneApp.OpenURL(u)
+		}
+		return
+	}
+	if source == "cache-offline" {
+		dialog.ShowInformation("openMSX Help", "Sem internet — exibindo cache local.", e.window)
+	}
+	if source == "online" && e.window != nil && e.inEditor {
+		e.window.SetMainMenu(e.makeEditorMenu())
+	}
+	rawHTML, readErr := os.ReadFile(htmlPath)
+	if readErr != nil {
+		dialog.ShowError(readErr, e.window)
+		return
+	}
+	e.showHTMLHelp("openMSX - "+doc.Title, doc.URL, rawHTML)
+}
+
+func (e *editorUI) cmdOpenMSXHelpUpdate() {
+	_, _ = pruneOpenMSXHelpCacheByAge(openMSXHelpCacheMaxAge, time.Now())
+	success := 0
+	offlineFallback := 0
+	fails := make([]string, 0)
+	for _, doc := range openMSXRemoteHelpDocs {
+		_, source, dlErr := ensureOpenMSXHelpFile(doc, true)
+		if dlErr != nil {
+			fails = append(fails, doc.Title+": "+dlErr.Error())
+			continue
+		}
+		if source == "cache-offline" {
+			offlineFallback++
+		}
+		success++
+	}
+
+	msg := fmt.Sprintf("Updated %d/%d openMSX help document(s).", success, len(openMSXRemoteHelpDocs))
+	if offlineFallback > 0 {
+		msg += fmt.Sprintf("\n\nSem internet, mantendo cache para %d documento(s).", offlineFallback)
+	}
+	if len(fails) > 0 {
+		msg += "\n\nFailed:\n- " + strings.Join(fails, "\n- ")
+	}
+	dialog.ShowInformation("openMSX Help Update", msg, e.window)
+	if e.window != nil && e.inEditor {
+		e.window.SetMainMenu(e.makeEditorMenu())
+	}
 }
 
 func findProjectDocPath(fileName string) (string, error) {
@@ -2389,6 +2688,7 @@ func (e *editorUI) closeWindowNow() {
 	if e.window == nil {
 		return
 	}
+	e.closeOpenMSXBridge()
 	e.allowWindowClose = true
 	if e.closeWindow != nil {
 		e.closeWindow()
@@ -2514,6 +2814,81 @@ func configureInitialDirectory(rawPath, fallbackDir string) string {
 	return ""
 }
 
+var ws7SubdirectoryNames = []string{"TEMP", "DSKA", "DSKB", "RES", "UTIL"}
+
+func normalizeWS7BaseDirectory(raw string) string {
+	base := strings.TrimSpace(raw)
+	if base == "" {
+		return ""
+	}
+	clean := filepath.Clean(base)
+	name := filepath.Base(clean)
+	if strings.EqualFold(name, "ws7.exe") {
+		return filepath.Dir(clean)
+	}
+	return clean
+}
+
+func validateWS7BaseDirectory(raw string) error {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return fmt.Errorf("directory is empty")
+	}
+
+	clean := filepath.Clean(raw)
+	if strings.EqualFold(filepath.Base(clean), "ws7.exe") {
+		st, err := os.Stat(clean)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("ws7.exe was not found")
+			}
+			return err
+		}
+		if st.IsDir() {
+			return fmt.Errorf("ws7.exe path points to a directory")
+		}
+		return nil
+	}
+
+	st, err := os.Stat(clean)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("directory does not exist")
+		}
+		return err
+	}
+	if !st.IsDir() {
+		return fmt.Errorf("path is not a directory")
+	}
+	return nil
+}
+
+func buildWS7SubdirectoryPaths(baseDir string) map[string]string {
+	base := normalizeWS7BaseDirectory(baseDir)
+	paths := make(map[string]string, len(ws7SubdirectoryNames))
+	for _, name := range ws7SubdirectoryNames {
+		if base == "" {
+			paths[name] = ""
+			continue
+		}
+		paths[name] = filepath.Join(base, name)
+	}
+	return paths
+}
+
+func createWS7Subdirectories(baseDir string) error {
+	if err := validateWS7BaseDirectory(baseDir); err != nil {
+		return err
+	}
+	base := normalizeWS7BaseDirectory(baseDir)
+	for _, name := range ws7SubdirectoryNames {
+		if err := os.MkdirAll(filepath.Join(base, name), 0o755); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func configuredToolCandidatePaths(toolID, dir string) []string {
 	dir = strings.TrimSpace(dir)
 	if dir == "" {
@@ -2558,6 +2933,130 @@ func detectConfiguredToolPath(toolID, dir string) string {
 		}
 	}
 	return filepath.Clean(dir)
+}
+
+func openMSXExtensionSettingKeys() []string {
+	return []string{settingOpenMSXExt1Key, settingOpenMSXExt2Key, settingOpenMSXExt3Key, settingOpenMSXExt4Key}
+}
+
+func normalizeOpenMSXResourceName(raw string) string {
+	name := strings.TrimSpace(raw)
+	if name == "" {
+		return ""
+	}
+	name = filepath.Base(name)
+	if strings.EqualFold(filepath.Ext(name), ".xml") {
+		name = strings.TrimSuffix(name, filepath.Ext(name))
+	}
+	return strings.TrimSpace(name)
+}
+
+func detectOpenMSXResourceDir(configuredPath, subdir string) string {
+	configuredPath = strings.TrimSpace(configuredPath)
+	subdir = strings.TrimSpace(subdir)
+	if configuredPath == "" || subdir == "" {
+		return ""
+	}
+
+	rootCandidates := make([]string, 0, 4)
+	clean := filepath.Clean(configuredPath)
+	if st, err := os.Stat(clean); err == nil {
+		if st.IsDir() {
+			rootCandidates = append(rootCandidates, clean)
+		} else {
+			rootCandidates = append(rootCandidates, filepath.Dir(clean))
+		}
+	} else {
+		rootCandidates = append(rootCandidates, filepath.Dir(clean))
+	}
+
+	seen := map[string]struct{}{}
+	for _, root := range rootCandidates {
+		for _, candidate := range []string{filepath.Join(root, "share", subdir), filepath.Join(filepath.Dir(root), "share", subdir)} {
+			key := strings.ToLower(filepath.Clean(candidate))
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			if st, err := os.Stat(candidate); err == nil && st.IsDir() {
+				return filepath.Clean(candidate)
+			}
+		}
+	}
+
+	return ""
+}
+
+func listOpenMSXXMLResourceNames(configuredPath, subdir string) []string {
+	resourceDir := detectOpenMSXResourceDir(configuredPath, subdir)
+	if resourceDir == "" {
+		return nil
+	}
+
+	entries, err := os.ReadDir(resourceDir)
+	if err != nil {
+		return nil
+	}
+
+	names := make([]string, 0, len(entries))
+	seen := map[string]struct{}{}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.EqualFold(filepath.Ext(name), ".xml") {
+			continue
+		}
+		base := normalizeOpenMSXResourceName(name)
+		if base == "" {
+			continue
+		}
+		key := strings.ToLower(base)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		names = append(names, base)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func buildOpenMSXResourceOptions(detected []string, current string) []string {
+	options := []string{""}
+	seen := map[string]struct{}{"": {}}
+
+	for _, name := range detected {
+		normalized := normalizeOpenMSXResourceName(name)
+		if normalized == "" {
+			continue
+		}
+		key := strings.ToLower(normalized)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		options = append(options, normalized)
+	}
+
+	if normalized := normalizeOpenMSXResourceName(current); normalized != "" {
+		key := strings.ToLower(normalized)
+		if _, ok := seen[key]; !ok {
+			options = append(options, normalized)
+		}
+	}
+
+	return options
+}
+
+func updateOpenMSXResourceSelect(selectWidget *widget.Select, detected []string, selected string) {
+	if selectWidget == nil {
+		return
+	}
+	selectWidget.Options = buildOpenMSXResourceOptions(detected, selected)
+	selectWidget.Refresh()
+	selectWidget.SetSelected(normalizeOpenMSXResourceName(selected))
 }
 
 func configuredToolLabel(toolID string) string {
@@ -2862,6 +3361,158 @@ func (e *editorUI) cmdConfigure() {
 	openMSXExe.SetPlaceHolder("Browse a folder or type the full openMSX path")
 	openMSXExe.SetText(loadSetting(settingOpenMSXExeKey))
 
+	configuredMachine := loadSetting(settingOpenMSXMachineKey)
+	configuredExts := make([]string, len(openMSXExtensionSettingKeys()))
+	for i, key := range openMSXExtensionSettingKeys() {
+		configuredExts[i] = loadSetting(key)
+	}
+
+	machineSelect := widget.NewSelect(buildOpenMSXResourceOptions(listOpenMSXXMLResourceNames(openMSXExe.Text, "machines"), configuredMachine), nil)
+	machineSelect.SetSelected(normalizeOpenMSXResourceName(configuredMachine))
+
+	openMSXExtSelects := []*widget.Select{
+		widget.NewSelect(buildOpenMSXResourceOptions(listOpenMSXXMLResourceNames(openMSXExe.Text, "extensions"), configuredExts[0]), nil),
+		widget.NewSelect(buildOpenMSXResourceOptions(listOpenMSXXMLResourceNames(openMSXExe.Text, "extensions"), configuredExts[1]), nil),
+		widget.NewSelect(buildOpenMSXResourceOptions(listOpenMSXXMLResourceNames(openMSXExe.Text, "extensions"), configuredExts[2]), nil),
+		widget.NewSelect(buildOpenMSXResourceOptions(listOpenMSXXMLResourceNames(openMSXExe.Text, "extensions"), configuredExts[3]), nil),
+	}
+	for i := range openMSXExtSelects {
+		openMSXExtSelects[i].SetSelected(normalizeOpenMSXResourceName(configuredExts[i]))
+	}
+
+	machineHint := widget.NewLabel("")
+	machineHint.Wrapping = fyne.TextWrapWord
+	extHint := widget.NewLabel("")
+	extHint.Wrapping = fyne.TextWrapWord
+	refreshOpenMSXHints := func() {
+		machines := listOpenMSXXMLResourceNames(openMSXExe.Text, "machines")
+		extensions := listOpenMSXXMLResourceNames(openMSXExe.Text, "extensions")
+
+		updateOpenMSXResourceSelect(machineSelect, machines, machineSelect.Selected)
+		for i := range openMSXExtSelects {
+			updateOpenMSXResourceSelect(openMSXExtSelects[i], extensions, openMSXExtSelects[i].Selected)
+		}
+
+		if len(machines) == 0 {
+			machineHint.SetText("Detected machines: none (check openMSX path/share/machines)")
+		} else {
+			sample := machines
+			if len(sample) > 8 {
+				sample = sample[:8]
+			}
+			machineHint.SetText(fmt.Sprintf("Detected machines (%d): %s", len(machines), strings.Join(sample, ", ")))
+		}
+
+		if len(extensions) == 0 {
+			extHint.SetText("Detected extensions: none (check openMSX path/share/extensions)")
+		} else {
+			sample := extensions
+			if len(sample) > 8 {
+				sample = sample[:8]
+			}
+			extHint.SetText(fmt.Sprintf("Detected extensions (%d): %s", len(extensions), strings.Join(sample, ", ")))
+		}
+	}
+	openMSXExe.OnChanged = func(string) {
+		refreshOpenMSXHints()
+	}
+	refreshHintsBtn := widget.NewButton("Refresh openMSX Lists", func() {
+		refreshOpenMSXHints()
+		if e.status != nil {
+			e.status.SetText("Configure: openMSX lists refreshed")
+		}
+	})
+	refreshOpenMSXHints()
+
+	ws7BaseDir := widget.NewEntry()
+	ws7BaseDir.SetPlaceHolder("Directory that contains ws7.exe")
+	ws7BaseDir.SetText(loadSetting(settingWS7BaseDirKey))
+	ws7ValidationHint := widget.NewLabel("")
+	ws7ValidationHint.Wrapping = fyne.TextWrapWord
+
+	ws7SubdirEntries := map[string]*widget.Entry{}
+	for _, name := range ws7SubdirectoryNames {
+		entry := widget.NewEntry()
+		entry.Disable()
+		ws7SubdirEntries[name] = entry
+	}
+	refreshWS7SubdirFields := func() {
+		paths := buildWS7SubdirectoryPaths(ws7BaseDir.Text)
+		for _, name := range ws7SubdirectoryNames {
+			ws7SubdirEntries[name].SetText(paths[name])
+		}
+	}
+	var ws7CreateBtn *widget.Button
+	applyWS7BaseValidation := func() {
+		err := validateWS7BaseDirectory(ws7BaseDir.Text)
+		ws7BaseDir.SetValidationError(err)
+		if err != nil {
+			ws7ValidationHint.SetText("WS7 directory invalid: " + err.Error())
+			if ws7CreateBtn != nil {
+				ws7CreateBtn.Disable()
+			}
+		} else {
+			ws7ValidationHint.SetText("WS7 directory looks valid.")
+			if ws7CreateBtn != nil {
+				ws7CreateBtn.Enable()
+			}
+		}
+		refreshWS7SubdirFields()
+	}
+	ws7BaseDir.OnChanged = func(string) {
+		applyWS7BaseValidation()
+	}
+
+	ws7BrowseBtn := widget.NewButton("Browse...", func() {
+		d := dialog.NewFolderOpen(func(listable fyne.ListableURI, err error) {
+			if err != nil {
+				if e.status != nil {
+					e.status.SetText("ws7 directory: " + err.Error())
+				}
+				return
+			}
+			if listable == nil {
+				return
+			}
+			ws7BaseDir.SetText(filepath.Clean(listable.Path()))
+		}, e.window)
+
+		initialDir := configureInitialDirectory(ws7BaseDir.Text, lastDir)
+		if initialDir != "" {
+			u, err := storage.ParseURI("file://" + filepath.ToSlash(initialDir))
+			if err == nil {
+				if lister, lErr := storage.ListerForURI(u); lErr == nil {
+					d.SetLocation(lister)
+				}
+			}
+		}
+		d.Show()
+	})
+	ws7CreateBtn = widget.NewButton("Create WS7 Subdirs", func() {
+		if err := validateWS7BaseDirectory(ws7BaseDir.Text); err != nil {
+			dialog.ShowInformation("WS7 Directories", "Invalid WS7 directory: "+err.Error(), e.window)
+			if e.status != nil {
+				e.status.SetText("ws7 subdirs: invalid directory")
+			}
+			applyWS7BaseValidation()
+			return
+		}
+		if err := createWS7Subdirectories(ws7BaseDir.Text); err != nil {
+			dialog.ShowError(err, e.window)
+			if e.status != nil {
+				e.status.SetText("ws7 subdirs: failed")
+			}
+			return
+		}
+		refreshWS7SubdirFields()
+		dialog.ShowInformation("WS7 Directories", "Created/validated directories: TEMP, DSKA, DSKB, RES, UTIL.", e.window)
+		if e.status != nil {
+			e.status.SetText("ws7 subdirs: ready")
+		}
+	})
+	ws7DirField := container.NewBorder(nil, nil, nil, container.NewHBox(ws7BrowseBtn, ws7CreateBtn), ws7BaseDir)
+	applyWS7BaseValidation()
+
 	msxbas2romExe := widget.NewEntry()
 	msxbas2romExe.SetPlaceHolder("Browse a folder or type the full msxbas2rom path")
 	msxbas2romExe.SetText(loadSetting(settingMSXBas2RomExeKey))
@@ -2874,16 +3525,31 @@ func (e *editorUI) cmdConfigure() {
 	msxEncodingExe.SetPlaceHolder("Browse a folder or type the full MSX Encoding path")
 	msxEncodingExe.SetText(loadSetting(settingMSXEncodingExeKey))
 
-	dialog.ShowForm("Configure", "Save", "Cancel", []*widget.FormItem{
+	form := widget.NewForm(
 		widget.NewFormItem("Editor Theme", themeSelect),
+		widget.NewFormItem("WS7 Directory", ws7DirField),
+		widget.NewFormItem("", ws7ValidationHint),
+		widget.NewFormItem("WS7 TEMP", ws7SubdirEntries["TEMP"]),
+		widget.NewFormItem("WS7 DSKA", ws7SubdirEntries["DSKA"]),
+		widget.NewFormItem("WS7 DSKB", ws7SubdirEntries["DSKB"]),
+		widget.NewFormItem("WS7 RES", ws7SubdirEntries["RES"]),
+		widget.NewFormItem("WS7 UTIL", ws7SubdirEntries["UTIL"]),
 		widget.NewFormItem("openMSX Path", bindDirectoryPicker("openMSX path", settingOpenMSXExeKey, openMSXExe)),
+		widget.NewFormItem("", refreshHintsBtn),
+		widget.NewFormItem("openMSX Machine", machineSelect),
+		widget.NewFormItem("", machineHint),
+		widget.NewFormItem("openMSX Ext 1", openMSXExtSelects[0]),
+		widget.NewFormItem("openMSX Ext 2", openMSXExtSelects[1]),
+		widget.NewFormItem("openMSX Ext 3", openMSXExtSelects[2]),
+		widget.NewFormItem("openMSX Ext 4", openMSXExtSelects[3]),
+		widget.NewFormItem("", extHint),
 		widget.NewFormItem("msxbas2rom Path", bindDirectoryPicker("msxbas2rom path", settingMSXBas2RomExeKey, msxbas2romExe)),
 		widget.NewFormItem("BASIC Dignified Path", bindDirectoryPicker("BASIC Dignified path", settingBasicDignifiedExeKey, basicDignifiedExe)),
 		widget.NewFormItem("MSX Encoding Path", bindDirectoryPicker("MSX Encoding path", settingMSXEncodingExeKey, msxEncodingExe)),
-	}, func(ok bool) {
-		if !ok {
-			return
-		}
+	)
+
+	var cfgDialog *dialog.CustomDialog
+	saveConfig := func() {
 
 		nextTheme := editorThemeDarkID
 		for _, opt := range themeOptions {
@@ -2897,7 +3563,12 @@ func (e *editorUI) cmdConfigure() {
 
 		if e.store != nil {
 			_ = e.store.SetSetting(context.Background(), settingEditorThemeKey, e.editorThemeID)
+			_ = e.store.SetSetting(context.Background(), settingWS7BaseDirKey, normalizeWS7BaseDirectory(ws7BaseDir.Text))
 			_ = e.store.SetSetting(context.Background(), settingOpenMSXExeKey, strings.TrimSpace(openMSXExe.Text))
+			_ = e.store.SetSetting(context.Background(), settingOpenMSXMachineKey, normalizeOpenMSXResourceName(machineSelect.Selected))
+			for i, key := range openMSXExtensionSettingKeys() {
+				_ = e.store.SetSetting(context.Background(), key, normalizeOpenMSXResourceName(openMSXExtSelects[i].Selected))
+			}
 			_ = e.store.SetSetting(context.Background(), settingMSXBas2RomExeKey, strings.TrimSpace(msxbas2romExe.Text))
 			_ = e.store.SetSetting(context.Background(), settingBasicDignifiedExeKey, strings.TrimSpace(basicDignifiedExe.Text))
 			_ = e.store.SetSetting(context.Background(), settingMSXEncodingExeKey, strings.TrimSpace(msxEncodingExe.Text))
@@ -2906,7 +3577,22 @@ func (e *editorUI) cmdConfigure() {
 		if e.status != nil {
 			e.status.SetText("Configuration saved")
 		}
-	}, e.window)
+		if cfgDialog != nil {
+			cfgDialog.Hide()
+		}
+	}
+
+	saveBtn := widget.NewButton("Save", saveConfig)
+	cancelBtn := widget.NewButton("Cancel", func() {
+		if cfgDialog != nil {
+			cfgDialog.Hide()
+		}
+	})
+	actions := container.NewHBox(layout.NewSpacer(), cancelBtn, saveBtn)
+	content := container.NewBorder(nil, actions, nil, nil, container.NewVScroll(form))
+	cfgDialog = dialog.NewCustomWithoutButtons("Configure", content, e.window)
+	cfgDialog.Resize(fyne.NewSize(1120, 700))
+	cfgDialog.Show()
 }
 
 func (e *editorUI) cmdBasicRenum() {
@@ -3397,7 +4083,7 @@ func (e *editorUI) runConfiguredTool(toolID string, args []string, detached bool
 }
 
 func (e *editorUI) cmdLaunchOpenMSX() {
-	e.runConfiguredTool(settingOpenMSXExeKey, nil, true)
+	e.openOpenMSXBridge()
 }
 
 func (e *editorUI) cmdLaunchMSXBas2Rom() {

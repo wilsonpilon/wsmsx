@@ -215,3 +215,135 @@ func TestBuildConfiguredToolProbeSpecsForMSXEncodingPackageJSON(t *testing.T) {
 		t.Fatalf("unexpected probe args: %#v", specs[0].args)
 	}
 }
+
+func TestNormalizeOpenMSXResourceName(t *testing.T) {
+	if got := normalizeOpenMSXResourceName("  Panasonic_FS-A1GT.xml  "); got != "Panasonic_FS-A1GT" {
+		t.Fatalf("unexpected normalized machine: got=%q", got)
+	}
+	if got := normalizeOpenMSXResourceName(`C:\openmsx\share\extensions\scc.xml`); got != "scc" {
+		t.Fatalf("unexpected normalized extension: got=%q", got)
+	}
+}
+
+func TestListOpenMSXXMLResourceNamesFromExecutableDir(t *testing.T) {
+	root := t.TempDir()
+	exe := filepath.Join(root, "openmsx.exe")
+	if err := os.WriteFile(exe, []byte("stub"), 0o644); err != nil {
+		t.Fatalf("write exe: %v", err)
+	}
+	machinesDir := filepath.Join(root, "share", "machines")
+	if err := os.MkdirAll(machinesDir, 0o755); err != nil {
+		t.Fatalf("mkdir machines: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(machinesDir, "Panasonic_FS-A1GT.xml"), []byte("<machine/>"), 0o644); err != nil {
+		t.Fatalf("write machine xml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(machinesDir, "README.txt"), []byte("ignore"), 0o644); err != nil {
+		t.Fatalf("write readme: %v", err)
+	}
+
+	got := listOpenMSXXMLResourceNames(exe, "machines")
+	if len(got) != 1 || got[0] != "Panasonic_FS-A1GT" {
+		t.Fatalf("unexpected machines list: %#v", got)
+	}
+}
+
+func TestListOpenMSXXMLResourceNamesFromBinParentDir(t *testing.T) {
+	root := t.TempDir()
+	binDir := filepath.Join(root, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+	exe := filepath.Join(binDir, "openmsx.exe")
+	if err := os.WriteFile(exe, []byte("stub"), 0o644); err != nil {
+		t.Fatalf("write exe: %v", err)
+	}
+	extDir := filepath.Join(root, "share", "extensions")
+	if err := os.MkdirAll(extDir, 0o755); err != nil {
+		t.Fatalf("mkdir extensions: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(extDir, "scc.xml"), []byte("<extension/>"), 0o644); err != nil {
+		t.Fatalf("write ext xml: %v", err)
+	}
+
+	got := listOpenMSXXMLResourceNames(exe, "extensions")
+	if len(got) != 1 || got[0] != "scc" {
+		t.Fatalf("unexpected extensions list: %#v", got)
+	}
+}
+
+func TestBuildOpenMSXResourceOptionsIncludesCurrentWhenNotDetected(t *testing.T) {
+	got := buildOpenMSXResourceOptions([]string{"Panasonic_FS-A1GT", "Philips_NMS_8250"}, "CustomMachine")
+	if len(got) != 4 {
+		t.Fatalf("unexpected options length: %#v", got)
+	}
+	if got[0] != "" {
+		t.Fatalf("first option must be blank, got=%q", got[0])
+	}
+	if got[3] != "CustomMachine" {
+		t.Fatalf("expected custom machine as last option, got=%#v", got)
+	}
+}
+
+func TestBuildOpenMSXResourceOptionsNormalizesAndDeduplicates(t *testing.T) {
+	got := buildOpenMSXResourceOptions([]string{"scc.xml", "SCC", "moonsound"}, `C:\openmsx\share\extensions\scc.xml`)
+	if len(got) != 3 {
+		t.Fatalf("unexpected options length: %#v", got)
+	}
+	if got[1] != "scc" || got[2] != "moonsound" {
+		t.Fatalf("unexpected options: %#v", got)
+	}
+}
+
+func TestNormalizeWS7BaseDirectoryFromExecutablePath(t *testing.T) {
+	got := normalizeWS7BaseDirectory(`C:\apps\ws7\ws7.exe`)
+	if got != `C:\apps\ws7` {
+		t.Fatalf("unexpected ws7 base dir: got=%q", got)
+	}
+}
+
+func TestBuildWS7SubdirectoryPaths(t *testing.T) {
+	paths := buildWS7SubdirectoryPaths(`C:\apps\ws7`)
+	if paths["TEMP"] != `C:\apps\ws7\TEMP` {
+		t.Fatalf("unexpected TEMP path: %q", paths["TEMP"])
+	}
+	if paths["UTIL"] != `C:\apps\ws7\UTIL` {
+		t.Fatalf("unexpected UTIL path: %q", paths["UTIL"])
+	}
+}
+
+func TestCreateWS7Subdirectories(t *testing.T) {
+	root := t.TempDir()
+	if err := createWS7Subdirectories(root); err != nil {
+		t.Fatalf("create ws7 subdirs: %v", err)
+	}
+	for _, name := range ws7SubdirectoryNames {
+		path := filepath.Join(root, name)
+		if st, err := os.Stat(path); err != nil || !st.IsDir() {
+			t.Fatalf("expected directory %q to exist", path)
+		}
+	}
+}
+
+func TestValidateWS7BaseDirectory(t *testing.T) {
+	if err := validateWS7BaseDirectory(""); err == nil {
+		t.Fatal("expected error for empty ws7 directory")
+	}
+
+	if err := validateWS7BaseDirectory(`Z:\does-not-exist\ws7`); err == nil {
+		t.Fatal("expected error for missing ws7 directory")
+	}
+
+	dir := t.TempDir()
+	if err := validateWS7BaseDirectory(dir); err != nil {
+		t.Fatalf("expected valid existing directory, got error: %v", err)
+	}
+
+	exe := filepath.Join(dir, "ws7.exe")
+	if err := os.WriteFile(exe, []byte("stub"), 0o644); err != nil {
+		t.Fatalf("write ws7.exe stub: %v", err)
+	}
+	if err := validateWS7BaseDirectory(exe); err != nil {
+		t.Fatalf("expected valid ws7.exe path, got error: %v", err)
+	}
+}
