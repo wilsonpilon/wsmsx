@@ -62,8 +62,8 @@ When you enter the editor, the top menu changes to:
 
 - `File`
 - `Edit`
-- `View`
 - `Insert`
+- `Style`
 - `Utilities`
 
 Current editor features:
@@ -80,19 +80,39 @@ Current editor features:
 - Editor supports optional split syntax preview beside the text editor.
   - Toggle it in `View > Show Split Syntax Preview` / `View > Hide Split Syntax Preview`.
   - Inline syntax highlighting remains active in normal (non-split) mode.
+- **Style menu** (`Style`):
+  - `Bold (Ctrl+P,B)`: Toggle bold rendering on current tab; gutter and ruler adapt to font metrics.
+  - `Font... (Ctrl+P,=)`: Open font configuration dialog.
+    - Choose font family (Source Code Pro, MSX Screen).
+    - Select size (8–48 pt), weight (ExtraLight–Black), and italic style.
+    - Options are persisted across sessions.
+- `Insert menu`:
+  - `Include File (Ctrl+K,R)`: Insert external file at cursor position.
+  - `Extended Character (Ctrl+M,G)`: Insert non-ASCII characters.
+  - `Convert Case` submenu:
+    - `Uppercase (Ctrl+K,")`: Convert to UPPERCASE.
+    - `Lowercase (Ctrl+K,')`: Convert to lowercase.
+    - `Capitalize (Ctrl+K,.)`: Capitalize First Letter Of Each Word.
 - `Utilities > Configure...` is also available inside the editor with the same settings.
+  - Folder browser for each external tool.
+  - Auto-detection of tool executable/script when folder is selected.
+  - `Test` button per tool to pre-validate path (lightweight probe execution).
 - `Utilities > RULE (Regua)` opens the floating ruler overlay.
   - It uses a fixed 132-column visual scale.
   - It is draggable on screen.
   - It tracks live character distance from the cursor position where RULE was enabled.
   - While RULE is active, `B` marks block start / block end for inclusive span counting.
-- Tab close confirmation when unsaved changes exist.
-- Global exit confirmation now checks all open tabs for unsaved changes before closing the app.
-- Dirty tab indicator with `*` and warning icon.
 - `Utilities > Calculator` opens an expression calculator dialog.
   - Shortcut: `Ctrl+Q` `Ctrl+M`.
   - Input supports decimal by default, plus `&H` (hex) and `&B` (binary) prefixes.
   - Output shows Decimal / Hex / Binary.
+- `Utilities > Open openMSX`: Launch MSX emulator (detached).
+- `Utilities > Run msxbas2rom`: Convert MSX BASIC files.
+- `Utilities > Run BASIC Dignified`: Transpile BASIC Dignified syntax.
+- `Utilities > Run MSX Encoding`: Handle MSX text encoding.
+- Tab close confirmation when unsaved changes exist.
+- Global exit confirmation now checks all open tabs for unsaved changes before closing the app.
+- Dirty tab indicator with `*` and warning icon.
 
 ## 5) Main Shortcuts
 
@@ -107,6 +127,8 @@ Current editor features:
 | `Ctrl+R` | Page up |
 | `Ctrl+C` | Page down |
 | `Ctrl+Y` | Delete line |
+| `Ctrl+T` | Delete word right |
+| `Ctrl+U` | Undo |
 | `Ctrl+N` | New tab (opens type selector; default `*.asc`) |
 | `Ctrl+W` | Close current tab |
 | `Ctrl+O` `Ctrl+L` | Document beginning |
@@ -123,6 +145,22 @@ Current editor features:
 | `Ctrl+P` `Ctrl+?` | Change Printer |
 | `Ctrl+K` `Ctrl+Q` `Ctrl+X` | Exit |
 
+### Style Commands
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+P` `Ctrl+B` | Toggle bold text style |
+| `Ctrl+P` `Ctrl+=` | Open font configuration (family/size/weight/italic) |
+
+### Text Operations
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+K` `Ctrl+R` | Include file at cursor |
+| `Ctrl+K` `Ctrl+"` | Convert selection/line to UPPERCASE |
+| `Ctrl+K` `Ctrl+'` | Convert selection/line to lowercase |
+| `Ctrl+K` `Ctrl+.` | Capitalize selection/line |
+
 ### RULE Mode
 
 | Key | Action |
@@ -137,7 +175,66 @@ Current editor features:
 |-----|--------|
 | `Ctrl+Q` `Ctrl+M` | Open calculator dialog |
 
-## 6) RULE Mode (Floating Ruler)
+### Tool Launch
+
+| Menu Action | Purpose |
+|-------------|---------|
+| `Utilities > Open openMSX` | Launch MSX emulator |
+| `Utilities > Run msxbas2rom` | Convert MSX BASIC (with current file as arg) |
+| `Utilities > Run BASIC Dignified` | Transpile BASIC Dignified (with current file as arg) |
+| `Utilities > Run MSX Encoding` | Run MSX encoding tool (with current file as arg) |
+
+## 6) Font Configuration
+
+Font settings are available via `Style > Font... (Ctrl+P,=)`.
+
+Dialog options:
+
+- **Font Family**: Source Code Pro (default), MSX Screen 0, MSX Screen 1.
+- **Size**: 8–48 pt (default: 14 pt).
+- **Weight**: ExtraLight, Light, Regular, Medium, SemiBold, Bold, ExtraBold, Black.
+  - Only applicable to Source Code Pro; MSX Screen fonts use Regular.
+- **Style**: Italic checkbox (enabled only for Source Code Pro).
+- **Width**: Currently shows "Normal" (Narrow widths are not available in bundled fonts).
+
+Settings are automatically persisted across sessions.
+
+The line-number gutter, floating ruler, and column ruler adapt to the selected font family/size/weight.
+
+## 7) Configure Dialog
+
+Access via `Utilities > Configure...` (in both Opening Menu and Editor).
+
+Configuration items:
+
+- **Editor Theme**: Dark, Light, One Dark, Monokai, Solarized Dark, Github Dark.
+- **Tool paths** (one entry per external tool):
+  - openMSX
+  - msxbas2rom
+  - BASIC Dignified
+  - MSX Encoding
+
+Each tool path field includes:
+
+- **Browse button**: Opens a folder selector. Auto-detects the most likely executable/script inside the selected folder.
+- **Test button**: Pre-validates the configured path by executing a lightweight probe command:
+  - `--help` or `--version` for standalone executables.
+  - `python -u script --help` for Python scripts.
+  - `node --check script.js` for Node.js files.
+  - `npm --prefix <dir> --version` for `package.json` (MSX Encoding).
+- **Manual entry**: You can type or paste a direct file path; it is accepted as-is.
+
+The Test button displays:
+
+- Resolved file path
+- Probe command used
+- Work directory
+- Execution result (success / failure)
+- Output or error message
+
+If a tool command fails, no tool is launched, and an error dialog appears with the resolved path displayed.
+
+## 8) RULE Mode (Floating Ruler)
 
 `RULE` is a floating measurement tool for counting characters visually.
 
@@ -165,7 +262,7 @@ Current behavior:
 - confirm indentation width
 - count a multi-line span
 
-## 7) Calculator Utility
+## 9) Calculator Utility
 
 The calculator dialog is available under `Utilities > Calculator`.
 
@@ -196,16 +293,40 @@ Examples:
 - `Save As` and file copy dialogs now suggest the `.asc` extension explicitly for new MSX-BASIC ASCII documents.
 - These dialogs accept both `.asc` and `.amx`, keeping the workflow ready for future `.amx` file creation.
 
-## 8) Recommended Workflow
+## 10) Tool Launch
+
+External tools can be launched from `Utilities` menu:
+
+- **Open openMSX**: Launches the MSX emulator (detached process; app continues running).
+- **Run msxbas2rom**: Converts the current file via `msxbas2rom`.
+  - Shows output in a dialog when complete.
+  - Path configured in `Utilities > Configure...`.
+- **Run BASIC Dignified**: Transpiles the current file via BASIC Dignified.
+  - Shows output in a dialog when complete.
+  - Path configured in `Utilities > Configure...`.
+- **Run MSX Encoding**: Runs encoding tool on the current file.
+  - Shows output in a dialog when complete.
+  - Path configured in `Utilities > Configure...`.
+
+Tool paths accept either:
+
+- **Direct file path**: Executable or script file location (e.g., `C:\tools\openmsx.exe`).
+- **Directory path**: Folder where the tool is installed; auto-detection finds the most likely executable.
+- **Fallback**: If the configured path is missing, the folder parent is scanned for candidates.
+
+## 11) Recommended Workflow
 
 1. Start WS7.
 2. Open a file from the startup screen.
 3. Use `Ctrl+N` for new working tabs.
 4. Use `Ctrl+K` `Ctrl+S` to save frequently.
 5. Use `Ctrl+W` to close the current tab safely.
+6. Configure external tools in `Utilities > Configure...` and test them before use.
 
-## 9) Notes
+## 12) Notes
 
 - The project is evolving with a focus on WordStar 7 interaction fidelity.
 - Not all legacy commands are complete yet; pending items appear as "next block" in the app.
+- Font, style, and theme preferences persist across sessions via local SQLite storage.
+- Tool paths are validated and cached, with lightweight probes executed to ensure availability before launch.
 

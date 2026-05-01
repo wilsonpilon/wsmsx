@@ -76,16 +76,31 @@ Stack confirmada:
 9. Correcao do gutter de linhas em `internal/ui/linenumbers.go` (numeracao volta a atualizar corretamente).
 10. Implementacao da regua flutuante (`RULE`) como overlay independente da regua antiga.
 11. Refino visual da regua:
-   - escala alinhada por celulas de caractere
-   - marcadores de dezena
-   - linha guia verde
-   - titulo no rodape
+    - escala alinhada por celulas de caractere
+    - marcadores de dezena
+    - linha guia verde
+    - titulo no rodape
 12. Fluxo de medicao de bloco dentro do RULE com tecla `B`.
 13. Remapeamento de atalhos:
-   - `Ctrl+Q,R` = RULE
-   - `Ctrl+O,L` = Document Beginning
+    - `Ctrl+Q,R` = RULE
+    - `Ctrl+O,L` = Document Beginning
 14. Limpeza editorial da documentacao `.md` para refletir o comportamento atual da regua.
 15. Implementacao da calculadora em `Utilities` (`Ctrl+Q,M`) com parser/avaliador dedicado.
+16. **[0.1.9]** Sistema de selecao de fonte com `Style > Font... (Ctrl+P,=)`:
+    - Suporte a familias bundled (Source Code Pro, MSX Screen).
+    - Selecao de tamanho (8..48pt), peso e estilo (itálico).
+    - Persistência de preferências (setting keys).
+17. **[0.1.9]** Implementacao de `Style > Bold (Ctrl+P,B)` com toggle por aba.
+    - Regua de linhas, regua flutuante e floating ruler adaptam a novas metricas de fonte.
+18. **[0.1.9]** Melhorias na tela `Configure`:
+    - Seletor de diretorio por ferramenta com botao `Browse...`.
+    - Auto-deteccao de executavel/script dentro de pasta escolhida.
+    - Botao `Test` por ferramenta: executa probe leve (--help/--version/--check).
+    - Validacao pre-salva com feedback detalhado.
+19. **[0.1.9]** Implementacao de consumo real de paths de ferramentas:
+    - Aceita arquivo direto ou folder com autodeteccao.
+    - Rotinas de lancamento: `openMSX` (detached), `msxbas2rom`, `BASIC Dignified`, `MSX Encoding`.
+    - Suporte a diferentes runners: executaveis, Python, Node.js, npm.
 
 ## 5) Mapeamento de teclas WordStar (estado atual)
 
@@ -202,10 +217,12 @@ Ao propor mudancas:
 
 ## 9) Proximos passos prioritarios
 
-1. Destacar visualmente no texto o bloco medido/selecionado pelo fluxo do RULE.
-2. Implementar "Go to Beginning/End of Block" (`Ctrl+Q,B` / `Ctrl+Q,K`).
-3. Revisar comandos `[NI]` e priorizar os mais usados.
-4. Padronizar testes para fluxos de teclado (chords) e regressao de status.
-5. Manter disciplina de release: atualizar `CHANGELOG.md` (`Unreleased`) e depois gerar secao versionada.
+1. Expandir integracao de ferramentas (openMSX, msxbas2rom) com suporte a argumentos de linha de comando.
+2. Implementar dialogo de configuracao para parametros de ferramentas (diretorio de entrada/saida).
+3. Destacar visualmente no texto o bloco medido/selecionado pelo fluxo do RULE.
+4. Implementar "Go to Beginning/End of Block" (`Ctrl+Q,B` / `Ctrl+Q,K`).
+5. Revisar comandos `[NI]` e priorizar os mais usados.
+6. Padronizar testes para fluxos de teclado (chords) e regressao de status.
+7. Manter disciplina de release: atualizar `CHANGELOG.md` (`Unreleased`) e depois gerar secao versionada.
 
 

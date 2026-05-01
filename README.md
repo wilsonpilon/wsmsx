@@ -26,31 +26,28 @@ Text editor in Go + Fyne, inspired by the WordStar 7.0 workflow, focused on MSX-
 
 ## Recent Changes
 
-- Current release is `0.1.7`.
-- `Utilities > RULE (Regua)` now opens a **floating 132-column character ruler** inside the editor.
-- `RULE` current workflow:
-  - `Ctrl+Q,R` toggles the ruler.
-  - `ESC` exits RULE mode.
-  - `B` marks block start / block end for inclusive span measurement.
-  - The ruler is draggable and measures across multiple lines.
-- `Utilities > Calculator` is now available in the editor.
-  - Shortcut: `Ctrl+Q,M`.
-  - Supports arithmetic, power, sqrt/int, bitwise ops, shifts and rotates.
-  - Number input supports decimal, `&H` (hex) and `&B` (binary).
-  - Results are shown in decimal, hexadecimal and binary.
-- `Ctrl+O,L` is now used for `Document Beginning`.
-- `Utilities > Configure...` is now available in both the Opening Menu and Editor Menu.
-- Configure dialog now supports:
-  - Editor theme selection (`Dark` / `Light`).
-  - Executable path settings for `openMSX`, `msxbas2rom`, `BASIC Dignified`, and `MSX Encoding`.
-- Editor `View` menu includes optional split syntax mode:
-  - `Show Split Syntax Preview`
-  - `Hide Split Syntax Preview`
-  - Inline syntax highlighting remains active in normal mode.
-- Exiting the app now checks for unsaved changes across all open tabs and asks for confirmation before closing.
-- Build script improvements:
-  - `./build.ps1 -Run` builds and runs the executable.
-  - `./build.ps1 -OpenOutputFolder` opens the output folder after build.
+- **Current release is `0.1.9`** with major improvements to editor styling and tool integration.
+- **Style > Font... (Ctrl+P,=)**: Configure bundled monospace fonts with family/size/weight/italic selection.
+  - Supports Source Code Pro variants (ExtraLight, Light, Regular, Medium, SemiBold, Bold, ExtraBold, Black).
+  - MSX Screen 0/1 fonts available.
+  - Italic style available for Source Code Pro; line-number gutter and floating ruler adapt to font metrics.
+- **Style > Bold (Ctrl+P,B)**: Toggle bold text rendering on current tab; gutter and ruler reflow automatically.
+- **Configure enhancements**:
+  - Folder browser popup for each tool location (Browse button).
+  - Auto-detection of executable/script when folder is selected.
+  - Per-tool lightweight `Test` probe execution (`--help`/`--version` / `--check`, etc.).
+  - Pre-validation displays resolved path, probe command, and execution result before saving.
+- **Utilities menu additions**:
+  - `Open openMSX` - detached launch of MSX emulator.
+  - `Run msxbas2rom` - convert MSX BASIC files.
+  - `Run BASIC Dignified` - transpile BASIC Dignified syntax.
+  - `Run MSX Encoding` - handle MSX text encoding.
+  - Tool paths accept direct file paths or directories with auto-detection fallback.
+- **Utilities > RULE (Regua)**: Floating 132-column character ruler overlay.
+- **Utilities > Calculator (Ctrl+Q,M)**: Expression calculator with arithmetic, bitwise, shifts/rotates.
+- Editor `View` menu includes optional split syntax mode (Show/Hide Split Syntax Preview).
+- Exiting the app checks unsaved changes across all open tabs.
+- Build script supports `-Run` and `-OpenOutputFolder` options.
 
 ## Main Structure
 
@@ -80,7 +77,7 @@ build.ps1                        Windows build
 
 ## Versioning and Releases
 
-- Current app version is `0.1.7`.
+- Current app version is `0.1.9`.
 - Bump version in `internal/version/version.go` before each release.
 - Register new work under `## [Unreleased]` in `CHANGELOG.md`, then cut a dated version section.
 

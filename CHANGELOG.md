@@ -19,6 +19,9 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 - Editor theme application now rebuilds with configurable font family/weight/size.
 - `Style -> Bold (Ctrl+P,B)` now preserves the current italic preference while toggling bold.
+- `Configure` now offers a folder browser for each external tool location and auto-detects the most likely executable/script path when found.
+- Tool launch routines now consume configured paths at runtime, accepting direct file paths or directory paths with auto-detection fallback.
+- `Configure` now includes a per-tool `Test` action that performs lightweight real execution probes (for example `--help`/`--version`) before saving.
 - Bumped app version to `0.1.9` in `internal/version/version.go`.
 
 ## [0.1.7] - 2026-04-28

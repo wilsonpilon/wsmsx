@@ -1410,6 +1410,11 @@ func (e *editorUI) makeEditorMenu() *fyne.MainMenu {
 		fyne.NewMenuItem("RULE                       Ctrl+Q,R  ESC to exit", func() { e.cmdRule() }),
 		fyne.NewMenuItem("Calculator                 Ctrl+Q,M", func() { e.execute(input.CmdCalculator) }),
 		fyne.NewMenuItemSeparator(),
+		fyne.NewMenuItem("Open openMSX", func() { e.cmdLaunchOpenMSX() }),
+		fyne.NewMenuItem("Run msxbas2rom", func() { e.cmdLaunchMSXBas2Rom() }),
+		fyne.NewMenuItem("Run BASIC Dignified", func() { e.cmdLaunchBasicDignified() }),
+		fyne.NewMenuItem("Run MSX Encoding", func() { e.cmdLaunchMSXEncoding() }),
+		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Configure...", func() { e.cmdConfigure() }),
 	)
 
@@ -2400,6 +2405,220 @@ func (e *editorUI) cmdChangeDirectory() {
 	}, e.window)
 }
 
+func configureInitialDirectory(rawPath, fallbackDir string) string {
+	rawPath = strings.TrimSpace(rawPath)
+	fallbackDir = strings.TrimSpace(fallbackDir)
+
+	if rawPath != "" {
+		if dirExists(rawPath) {
+			return rawPath
+		}
+		if dir := filepath.Dir(rawPath); dir != "" && dir != "." && dirExists(dir) {
+			return dir
+		}
+	}
+
+	if fallbackDir != "" && dirExists(fallbackDir) {
+		return fallbackDir
+	}
+
+	if cwd, err := os.Getwd(); err == nil && dirExists(cwd) {
+		return cwd
+	}
+
+	return ""
+}
+
+func configuredToolCandidatePaths(toolID, dir string) []string {
+	dir = strings.TrimSpace(dir)
+	if dir == "" {
+		return nil
+	}
+	switch toolID {
+	case settingOpenMSXExeKey:
+		return []string{
+			filepath.Join(dir, "openmsx.exe"),
+			filepath.Join(dir, "openmsx"),
+		}
+	case settingMSXBas2RomExeKey:
+		return []string{
+			filepath.Join(dir, "msxbas2rom.exe"),
+			filepath.Join(dir, "msxbas2rom"),
+		}
+	case settingBasicDignifiedExeKey:
+		return []string{
+			filepath.Join(dir, "badig.py"),
+			filepath.Join(dir, "badig.exe"),
+			filepath.Join(dir, "badig"),
+		}
+	case settingMSXEncodingExeKey:
+		return []string{
+			filepath.Join(dir, "dist", "extension.js"),
+			filepath.Join(dir, "package.json"),
+			filepath.Join(dir, "esbuild.js"),
+		}
+	default:
+		return nil
+	}
+}
+
+func detectConfiguredToolPath(toolID, dir string) string {
+	dir = strings.TrimSpace(dir)
+	if dir == "" {
+		return ""
+	}
+	for _, candidate := range configuredToolCandidatePaths(toolID, dir) {
+		if stat, err := os.Stat(candidate); err == nil && !stat.IsDir() {
+			return filepath.Clean(candidate)
+		}
+	}
+	return filepath.Clean(dir)
+}
+
+func configuredToolLabel(toolID string) string {
+	switch toolID {
+	case settingOpenMSXExeKey:
+		return "openMSX"
+	case settingMSXBas2RomExeKey:
+		return "msxbas2rom"
+	case settingBasicDignifiedExeKey:
+		return "BASIC Dignified"
+	case settingMSXEncodingExeKey:
+		return "MSX Encoding"
+	default:
+		return "External Tool"
+	}
+}
+
+func resolveConfiguredToolPath(toolID, configuredValue string) (string, error) {
+	raw := strings.TrimSpace(configuredValue)
+	if raw == "" {
+		return "", fmt.Errorf("path is not configured")
+	}
+
+	clean := filepath.Clean(raw)
+	if st, err := os.Stat(clean); err == nil {
+		if !st.IsDir() {
+			return clean, nil
+		}
+		detected := detectConfiguredToolPath(toolID, clean)
+		if detected == "" || filepath.Clean(detected) == clean {
+			return "", fmt.Errorf("no executable/script detected in directory: %s", clean)
+		}
+		if dst, derr := os.Stat(detected); derr == nil && !dst.IsDir() {
+			return filepath.Clean(detected), nil
+		}
+		return "", fmt.Errorf("detected path is not a file: %s", detected)
+	}
+
+	parent := filepath.Dir(clean)
+	if parent != "" && parent != "." {
+		if st, err := os.Stat(parent); err == nil && st.IsDir() {
+			detected := detectConfiguredToolPath(toolID, parent)
+			if detected != "" && filepath.Clean(detected) != filepath.Clean(parent) {
+				if dst, derr := os.Stat(detected); derr == nil && !dst.IsDir() {
+					return filepath.Clean(detected), nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("configured path does not exist: %s", clean)
+}
+
+func buildConfiguredToolCommand(toolID, resolvedPath string, extraArgs []string) (name string, args []string, workDir string) {
+	resolvedPath = filepath.Clean(strings.TrimSpace(resolvedPath))
+	ext := strings.ToLower(filepath.Ext(resolvedPath))
+	base := strings.ToLower(filepath.Base(resolvedPath))
+
+	if ext == ".py" {
+		return "python", append([]string{"-u", resolvedPath}, extraArgs...), filepath.Dir(resolvedPath)
+	}
+	if ext == ".js" {
+		return "node", append([]string{resolvedPath}, extraArgs...), filepath.Dir(resolvedPath)
+	}
+	if toolID == settingMSXEncodingExeKey && base == "package.json" {
+		dir := filepath.Dir(resolvedPath)
+		return "npm", []string{"--prefix", dir, "run", "compile"}, dir
+	}
+
+	return resolvedPath, extraArgs, filepath.Dir(resolvedPath)
+}
+
+type toolProbeSpec struct {
+	name    string
+	args    []string
+	workDir string
+	label   string
+}
+
+func buildConfiguredToolProbeSpecs(toolID, resolvedPath string) []toolProbeSpec {
+	resolvedPath = filepath.Clean(strings.TrimSpace(resolvedPath))
+	if resolvedPath == "" {
+		return nil
+	}
+
+	dir := filepath.Dir(resolvedPath)
+	ext := strings.ToLower(filepath.Ext(resolvedPath))
+	base := strings.ToLower(filepath.Base(resolvedPath))
+
+	specs := make([]toolProbeSpec, 0, 3)
+
+	if ext == ".py" {
+		specs = append(specs,
+			toolProbeSpec{name: "python", args: []string{"-u", resolvedPath, "--help"}, workDir: dir, label: "python -u <script> --help"},
+			toolProbeSpec{name: "python", args: []string{"-u", resolvedPath, "-h"}, workDir: dir, label: "python -u <script> -h"},
+		)
+		return specs
+	}
+
+	if ext == ".js" {
+		specs = append(specs, toolProbeSpec{name: "node", args: []string{"--check", resolvedPath}, workDir: dir, label: "node --check <script>"})
+		return specs
+	}
+
+	if toolID == settingMSXEncodingExeKey && base == "package.json" {
+		specs = append(specs, toolProbeSpec{name: "npm", args: []string{"--prefix", dir, "--version"}, workDir: dir, label: "npm --prefix <dir> --version"})
+		return specs
+	}
+
+	switch toolID {
+	case settingOpenMSXExeKey:
+		specs = append(specs,
+			toolProbeSpec{name: resolvedPath, args: []string{"--version"}, workDir: dir, label: "<tool> --version"},
+			toolProbeSpec{name: resolvedPath, args: []string{"-v"}, workDir: dir, label: "<tool> -v"},
+		)
+	case settingMSXBas2RomExeKey, settingBasicDignifiedExeKey:
+		specs = append(specs,
+			toolProbeSpec{name: resolvedPath, args: []string{"--help"}, workDir: dir, label: "<tool> --help"},
+			toolProbeSpec{name: resolvedPath, args: []string{"-h"}, workDir: dir, label: "<tool> -h"},
+		)
+	default:
+		specs = append(specs, toolProbeSpec{name: resolvedPath, args: []string{"--version"}, workDir: dir, label: "<tool> --version"})
+	}
+
+	return specs
+}
+
+func runToolProbeWithTimeout(spec toolProbeSpec, timeout time.Duration) (string, error) {
+	if strings.TrimSpace(spec.name) == "" {
+		return "", fmt.Errorf("empty command name")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, spec.name, spec.args...)
+	if strings.TrimSpace(spec.workDir) != "" {
+		cmd.Dir = spec.workDir
+	}
+	out, err := cmd.CombinedOutput()
+	text := strings.TrimSpace(string(out))
+	if ctx.Err() == context.DeadlineExceeded {
+		return text, fmt.Errorf("timeout after %s", timeout)
+	}
+	return text, err
+}
+
 func (e *editorUI) cmdConfigure() {
 	themeOptions := []struct {
 		Label string
@@ -2433,28 +2652,149 @@ func (e *editorUI) cmdConfigure() {
 		return strings.TrimSpace(v)
 	}
 
+	lastDir := loadSetting("last_dir")
+
+	testToolPath := func(title, toolID string, entry *widget.Entry) {
+		raw := strings.TrimSpace(entry.Text)
+		if raw == "" {
+			dialog.ShowInformation(title, "Path is empty. Choose a folder or type a tool path first.", e.window)
+			if e.status != nil {
+				e.status.SetText(title + ": empty path")
+			}
+			return
+		}
+
+		resolved, err := resolveConfiguredToolPath(toolID, raw)
+		if err != nil {
+			dialog.ShowInformation(title, "Validation failed: "+err.Error(), e.window)
+			if e.status != nil {
+				e.status.SetText(title + ": invalid path")
+			}
+			return
+		}
+
+		probes := buildConfiguredToolProbeSpecs(toolID, resolved)
+		if len(probes) == 0 {
+			dialog.ShowInformation(title, "No lightweight probe available for this tool path.", e.window)
+			if e.status != nil {
+				e.status.SetText(title + ": no probe available")
+			}
+			return
+		}
+
+		var (
+			successSpec *toolProbeSpec
+			successOut  string
+			lastErrSpec toolProbeSpec
+			lastErrOut  string
+			lastErr     error
+		)
+
+		for i := range probes {
+			spec := probes[i]
+			out, probeErr := runToolProbeWithTimeout(spec, 8*time.Second)
+			if probeErr == nil {
+				successSpec = &spec
+				successOut = out
+				break
+			}
+			lastErrSpec = spec
+			lastErrOut = out
+			lastErr = probeErr
+		}
+
+		if successSpec != nil {
+			msg := "Resolved file: " + resolved + "\n" +
+				"Probe: " + successSpec.name + " " + strings.Join(successSpec.args, " ") + "\n" +
+				"Work dir: " + successSpec.workDir + "\n" +
+				"Result: success"
+			if strings.TrimSpace(successOut) != "" {
+				msg += "\n\nOutput:\n" + successOut
+			}
+			dialog.ShowInformation(title, msg, e.window)
+			if e.status != nil {
+				e.status.SetText(title + ": test ok")
+			}
+			return
+		}
+
+		msg := "Resolved file: " + resolved + "\n" +
+			"Probe: " + lastErrSpec.name + " " + strings.Join(lastErrSpec.args, " ") + "\n" +
+			"Work dir: " + lastErrSpec.workDir + "\n" +
+			"Result: failed - " + lastErr.Error()
+		if strings.TrimSpace(lastErrOut) != "" {
+			msg += "\n\nOutput:\n" + lastErrOut
+		}
+		dialog.ShowInformation(title, msg, e.window)
+		if e.status != nil {
+			e.status.SetText(title + ": test failed")
+		}
+	}
+
+	bindDirectoryPicker := func(title, toolID string, entry *widget.Entry) *fyne.Container {
+		test := widget.NewButton("Test", func() {
+			testToolPath(title, toolID, entry)
+		})
+		browse := widget.NewButton("Browse...", func() {
+			d := dialog.NewFolderOpen(func(listable fyne.ListableURI, err error) {
+				if err != nil {
+					if e.status != nil {
+						e.status.SetText(title + ": " + err.Error())
+					}
+					return
+				}
+				if listable == nil {
+					return
+				}
+				selectedDir := filepath.Clean(listable.Path())
+				resolved := detectConfiguredToolPath(toolID, selectedDir)
+				entry.SetText(resolved)
+				if e.status != nil {
+					if resolved != selectedDir {
+						e.status.SetText(title + ": detected " + filepath.Base(resolved))
+					} else {
+						e.status.SetText(title + ": folder selected (no executable auto-detected)")
+					}
+				}
+			}, e.window)
+
+			initialDir := configureInitialDirectory(entry.Text, lastDir)
+			if initialDir != "" {
+				u, err := storage.ParseURI("file://" + filepath.ToSlash(initialDir))
+				if err == nil {
+					if lister, lErr := storage.ListerForURI(u); lErr == nil {
+						d.SetLocation(lister)
+					}
+				}
+			}
+			d.Show()
+		})
+		actions := container.NewHBox(test, browse)
+		return container.NewBorder(nil, nil, nil, actions, entry)
+	}
+
 	openMSXExe := widget.NewEntry()
-	openMSXExe.SetPlaceHolder("e.g. C:\\OpenMSX\\openmsx.exe")
+	openMSXExe.SetPlaceHolder("Browse a folder or type the full openMSX path")
 	openMSXExe.SetText(loadSetting(settingOpenMSXExeKey))
 
 	msxbas2romExe := widget.NewEntry()
-	msxbas2romExe.SetPlaceHolder("Path to msxbas2rom executable")
+	msxbas2romExe.SetPlaceHolder("Browse a folder or type the full msxbas2rom path")
 	msxbas2romExe.SetText(loadSetting(settingMSXBas2RomExeKey))
 
 	basicDignifiedExe := widget.NewEntry()
-	basicDignifiedExe.SetPlaceHolder("Path to BASIC Dignified executable/script")
+	basicDignifiedExe.SetPlaceHolder("Browse a folder or type the full BASIC Dignified path")
 	basicDignifiedExe.SetText(loadSetting(settingBasicDignifiedExeKey))
 
 	msxEncodingExe := widget.NewEntry()
-	msxEncodingExe.SetPlaceHolder("Path to msx-encoding executable")
+	msxEncodingExe.SetPlaceHolder("Browse a folder or type the full MSX Encoding path")
 	msxEncodingExe.SetText(loadSetting(settingMSXEncodingExeKey))
 
 	dialog.ShowForm("Configure", "Save", "Cancel", []*widget.FormItem{
 		widget.NewFormItem("Editor Theme", themeSelect),
-		widget.NewFormItem("openMSX Executable", openMSXExe),
-		widget.NewFormItem("msxbas2rom Executable", msxbas2romExe),
-		widget.NewFormItem("BASIC Dignified Executable", basicDignifiedExe),
-		widget.NewFormItem("MSX Encoding Executable", msxEncodingExe),
+		widget.NewFormItem("openMSX Path", bindDirectoryPicker("openMSX path", settingOpenMSXExeKey, openMSXExe)),
+		widget.NewFormItem("msxbas2rom Path", bindDirectoryPicker("msxbas2rom path", settingMSXBas2RomExeKey, msxbas2romExe)),
+		widget.NewFormItem("BASIC Dignified Path", bindDirectoryPicker("BASIC Dignified path", settingBasicDignifiedExeKey, basicDignifiedExe)),
+		widget.NewFormItem("MSX Encoding Path", bindDirectoryPicker("MSX Encoding path", settingMSXEncodingExeKey, msxEncodingExe)),
 	}, func(ok bool) {
 		if !ok {
 			return
@@ -2894,6 +3234,97 @@ func (e *editorUI) cmdRunPSCommand() {
 		result.Disable()
 		dialog.ShowCustom("PS Output", "Close", result, e.window)
 	}, e.window)
+}
+
+func (e *editorUI) resolveConfiguredToolPathFromSettings(toolID string) (string, error) {
+	if e.store == nil {
+		return "", fmt.Errorf("configuration storage is unavailable")
+	}
+	raw, _ := e.store.GetSetting(context.Background(), toolID)
+	resolved, err := resolveConfiguredToolPath(toolID, raw)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", configuredToolLabel(toolID), err)
+	}
+	return resolved, nil
+}
+
+func (e *editorUI) activeFileArgs() []string {
+	if e.activeTab == nil || strings.TrimSpace(e.activeTab.filePath) == "" {
+		return nil
+	}
+	return []string{filepath.Clean(e.activeTab.filePath)}
+}
+
+func (e *editorUI) runConfiguredTool(toolID string, args []string, detached bool) {
+	label := configuredToolLabel(toolID)
+	resolved, err := e.resolveConfiguredToolPathFromSettings(toolID)
+	if err != nil {
+		msg := err.Error() + "\n\nUse Utilities -> Configure... to set the tool path."
+		dialog.ShowInformation(label, msg, e.window)
+		if e.status != nil {
+			e.status.SetText(label + ": not configured")
+		}
+		return
+	}
+
+	name, cmdArgs, workDir := buildConfiguredToolCommand(toolID, resolved, args)
+	cmd := exec.Command(name, cmdArgs...)
+	if workDir != "" {
+		cmd.Dir = workDir
+	}
+
+	if detached {
+		if err := cmd.Start(); err != nil {
+			dialog.ShowError(err, e.window)
+			if e.status != nil {
+				e.status.SetText(label + ": failed to start")
+			}
+			return
+		}
+		if e.status != nil {
+			e.status.SetText(label + ": started")
+		}
+		return
+	}
+
+	output, runErr := cmd.CombinedOutput()
+	text := strings.TrimSpace(string(output))
+	if text == "" {
+		text = "(no output)"
+	}
+	if runErr != nil {
+		text += "\n\nError: " + runErr.Error()
+	}
+
+	result := widget.NewMultiLineEntry()
+	result.SetMinRowsVisible(20)
+	result.SetText(text)
+	result.Disable()
+	dialog.ShowCustom(label+" Output", "Close", result, e.window)
+
+	if e.status != nil {
+		if runErr != nil {
+			e.status.SetText(label + ": failed")
+		} else {
+			e.status.SetText(label + ": done")
+		}
+	}
+}
+
+func (e *editorUI) cmdLaunchOpenMSX() {
+	e.runConfiguredTool(settingOpenMSXExeKey, nil, true)
+}
+
+func (e *editorUI) cmdLaunchMSXBas2Rom() {
+	e.runConfiguredTool(settingMSXBas2RomExeKey, e.activeFileArgs(), false)
+}
+
+func (e *editorUI) cmdLaunchBasicDignified() {
+	e.runConfiguredTool(settingBasicDignifiedExeKey, e.activeFileArgs(), false)
+}
+
+func (e *editorUI) cmdLaunchMSXEncoding() {
+	e.runConfiguredTool(settingMSXEncodingExeKey, e.activeFileArgs(), false)
 }
 
 func (e *editorUI) cmdExitMSXide() {
