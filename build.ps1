@@ -6,6 +6,8 @@ param(
     [switch]$Clean,
     [switch]$Incremental,
     [switch]$SkipTests,
+    [switch]$NoConsole,
+    [switch]$Console,
     [switch]$Run,
     [switch]$OpenOutputFolder
 )
@@ -46,6 +48,10 @@ $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Push-Location $scriptRoot
 
 try {
+    if ($NoConsole -and $Console) {
+        throw "Choose only one console mode override: use either -NoConsole or -Console."
+    }
+
     if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
         throw "Go was not found in PATH. Install Go and try again."
     }
@@ -78,6 +84,14 @@ try {
     $timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     $unixSeconds = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
     $buildHex = "{0:x}" -f $unixSeconds
+    $hideConsole = ($Configuration -eq "Release")
+    if ($NoConsole) {
+        $hideConsole = $true
+    }
+    if ($Console) {
+        $hideConsole = $false
+    }
+    $consoleMode = if ($hideConsole) { "NoConsole (windowsgui)" } else { "Console" }
 
     Write-Host "=== WS7 Build ==="
     Write-Host "Time:          $timestamp"
@@ -88,6 +102,7 @@ try {
     Write-Host "WS7 version:   $repoVersion"
     Write-Host "Build (hex):   $buildHex"
     Write-Host "Git commit:    $gitCommit"
+    Write-Host "Console mode:  $consoleMode"
 
     if (-not $SkipTests) {
         Write-Host "Running tests..."
@@ -102,6 +117,9 @@ try {
     if ($Configuration -eq "Release") {
         $ldflags += " -s -w"
         $buildArgs += @("-trimpath")
+    }
+    if ($hideConsole) {
+        $ldflags += " -H=windowsgui"
     }
     $buildArgs += @("-ldflags", $ldflags)
     $buildArgs += $targetPackage

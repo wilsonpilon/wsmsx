@@ -95,7 +95,11 @@ go run ./cmd/ws7
 ./build.ps1
 ./build.ps1 -Configuration Release
 ./build.ps1 -Output dist/ws7.exe -SkipTests
+./build.ps1 -Configuration Debug -NoConsole -Output dist/ws7_debug_gui.exe
+./build.ps1 -Configuration Release -Console -Output dist/ws7_release_console.exe
 ```
+
+`-NoConsole` and `-Console` are explicit overrides and cannot be used together.
 
 ## Tests
 

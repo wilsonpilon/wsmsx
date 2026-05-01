@@ -13,6 +13,10 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Added `Utilities > Word Count` command to display text statistics (words and byte count).
   - Future enhancement: tokenized byte count for MSX BASIC format.
 
+### Changed
+
+- Updated documentation (`README.md` and `MANUAL.md`) with `build.ps1` examples for `-NoConsole` and `-Console`, including the note that these overrides cannot be used together.
+
 ### Fixed
 
 - Fixed top ruler alignment so it starts at text column 1 (after the line-number gutter) instead of the far-left editor edge.

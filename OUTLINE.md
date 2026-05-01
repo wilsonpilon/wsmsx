@@ -104,6 +104,9 @@ Stack confirmada:
 20. **[BUGFIX]** Correcao de alinhamento da regua fixa do topo:
     - A regua agora inicia na coluna 1 da area editavel (apos o gutter de números de linha).
     - Nao comeca mais no canto esquerdo total da janela.
+21. **[DOCS]** Atualizacao de documentacao para build Windows:
+    - `README.md` e `MANUAL.md` agora incluem exemplos de `build.ps1` com `-NoConsole` e `-Console`.
+    - Registrada a regra de exclusao mutua entre esses dois switches.
 
 ## 5) Mapeamento de teclas WordStar (estado atual)
 
