@@ -1,6 +1,6 @@
 # WS7 Editor
 
-![WS7 screenshot](images/wsmsx-01.png)
+![WS7 screenshot](images/wsmsx-02.png)
 
 Text editor in Go + Fyne, inspired by the WordStar 7.0 workflow, focused on MSX-BASIC development.
 
