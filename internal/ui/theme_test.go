@@ -37,3 +37,19 @@ func TestSourceCodeProThemeMonokaiPrimary(t *testing.T) {
 		t.Fatalf("unexpected monokai primary color: got=%v want=%v", got, want)
 	}
 }
+
+func TestNormalizeEditorFontFamilyFallback(t *testing.T) {
+	got := normalizeEditorFontFamily("not-a-real-family")
+	if got != defaultEditorFontFamily {
+		t.Fatalf("unexpected family fallback: got=%q want=%q", got, defaultEditorFontFamily)
+	}
+}
+
+func TestNormalizeEditorFontWeightByFamily(t *testing.T) {
+	if got := normalizeEditorFontWeight("MSX Screen 0", "Black"); got != "Regular" {
+		t.Fatalf("unexpected weight for MSX Screen 0: got=%q want=%q", got, "Regular")
+	}
+	if got := normalizeEditorFontWeight(defaultEditorFontFamily, "Black"); got != "Black" {
+		t.Fatalf("unexpected weight for Source Code Pro: got=%q want=%q", got, "Black")
+	}
+}

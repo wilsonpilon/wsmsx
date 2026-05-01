@@ -46,6 +46,9 @@ type floatingRulerWidget struct {
 	blockEndPos   int
 	hasBlockStart bool
 	hasBlockEnd   bool
+
+	bold   bool
+	italic bool
 }
 
 const floatingRulerScaleCols = 132
@@ -60,6 +63,22 @@ func newFloatingRulerWidget() *floatingRulerWidget {
 	}
 	r.ExtendBaseWidget(r)
 	return r
+}
+
+// SetBold updates the bold state so that character width measurements match
+// the active editor font weight. Triggers a redraw when the value changes.
+func (r *floatingRulerWidget) SetBold(b bool) {
+	r.SetTextStyle(b, r.italic)
+}
+
+// SetTextStyle updates bold and italic flags used by floating ruler labels.
+func (r *floatingRulerWidget) SetTextStyle(bold, italic bool) {
+	if r.bold == bold && r.italic == italic {
+		return
+	}
+	r.bold = bold
+	r.italic = italic
+	r.Refresh()
 }
 
 // SetOriginCharPos sets the character position that serves as the ruler's origin (0).
@@ -255,7 +274,9 @@ func (r *floatingRulerRenderer) init() {
 }
 
 func (r *floatingRulerRenderer) charWidth() float32 {
-	sz := fyne.MeasureText("M", r.markText.TextSize, r.markText.TextStyle)
+	// Always measure with non-bold monospace — Source Code Pro Regular and Bold
+	// share identical advance widths (both are monospace), so measurements are identical.
+	sz := fyne.MeasureText("M", r.markText.TextSize, fyne.TextStyle{Monospace: true})
 	return sz.Width
 }
 
@@ -413,12 +434,19 @@ func (r *floatingRulerRenderer) MinSize() fyne.Size {
 
 func (r *floatingRulerRenderer) Refresh() {
 	textSize := theme.TextSize()
+	style := fyne.TextStyle{Monospace: true, Bold: r.w.bold, Italic: r.w.italic}
 	for _, txt := range r.scaleTop {
 		txt.TextSize = textSize
+		txt.TextStyle = style
 	}
 	for _, txt := range r.scaleBot {
 		txt.TextSize = textSize
+		txt.TextStyle = style
 	}
+	r.markText.TextStyle = style
+	r.blockText.TextStyle = style
+	r.headerTxt.TextStyle = style
+	r.distText.TextStyle = fyne.TextStyle{Monospace: true, Bold: true, Italic: r.w.italic}
 	r.updateText()
 	// Position depends on w.posX/w.posY; force layout so dragging moves immediately.
 	r.Layout(r.w.Size())

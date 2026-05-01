@@ -275,6 +275,8 @@ type rulerWidget struct {
 	widget.BaseWidget
 	cursorCol int // 0-based
 	cursorRow int // 0-based (for Ln: display)
+	bold      bool
+	italic    bool
 }
 
 func newRulerWidget() *rulerWidget {
@@ -295,6 +297,22 @@ func (r *rulerWidget) UpdateCursor(row, col int) {
 	}
 	r.cursorRow = row
 	r.cursorCol = col
+	r.Refresh()
+}
+
+// SetBold updates the bold state and redraws the ruler so that character
+// measurements match the active editor font weight.
+func (r *rulerWidget) SetBold(b bool) {
+	r.SetTextStyle(b, r.italic)
+}
+
+// SetTextStyle updates bold and italic flags used by ruler labels.
+func (r *rulerWidget) SetTextStyle(bold, italic bool) {
+	if r.bold == bold && r.italic == italic {
+		return
+	}
+	r.bold = bold
+	r.italic = italic
 	r.Refresh()
 }
 
@@ -334,7 +352,7 @@ func (r *rulerRenderer) init() {
 	colorMark := color.NRGBA{R: 0x55, G: 0xcc, B: 0x55, A: 0x66}       // green, semi-transparent
 	colorCurRect := color.NRGBA{R: 0xff, G: 0xe0, B: 0x00, A: 0x50}    // yellow, semi-transparent
 
-	style := fyne.TextStyle{Monospace: true}
+	style := r.textStyle()
 	ts := theme.TextSize()
 
 	r.rowDecades = canvas.NewText("", colorDecade)
@@ -377,10 +395,15 @@ func (r *rulerRenderer) init() {
 	r.updateText()
 }
 
+// textStyle returns the monospace text style matching the current bold state.
+func (r *rulerRenderer) textStyle() fyne.TextStyle {
+	return fyne.TextStyle{Monospace: true, Bold: r.w.bold, Italic: r.w.italic}
+}
+
 // charSize returns the pixel width and height of one monospace character at
 // the current theme text size.
 func (r *rulerRenderer) charSize() (w, h float32) {
-	sz := fyne.MeasureText("M", r.rowDecades.TextSize, r.rowDecades.TextStyle)
+	sz := fyne.MeasureText("M", r.rowDecades.TextSize, r.textStyle())
 	return sz.Width, sz.Height
 }
 
@@ -480,9 +503,14 @@ func (r *rulerRenderer) MinSize() fyne.Size {
 }
 
 func (r *rulerRenderer) Refresh() {
-	r.rowDecades.TextSize = theme.TextSize()
-	r.rowUnits.TextSize = theme.TextSize()
-	r.rowCursor.TextSize = theme.TextSize()
+	ts := theme.TextSize()
+	style := r.textStyle()
+	r.rowDecades.TextStyle = style
+	r.rowUnits.TextStyle = style
+	r.rowCursor.TextStyle = style
+	r.rowDecades.TextSize = ts
+	r.rowUnits.TextSize = ts
+	r.rowCursor.TextSize = ts
 	r.updateText()
 	canvas.Refresh(r.w)
 }

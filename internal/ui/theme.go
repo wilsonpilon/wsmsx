@@ -3,6 +3,8 @@ package ui
 import (
 	"image/color"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -10,6 +12,12 @@ import (
 )
 
 const defaultEditorThemeID = "dark"
+
+const (
+	defaultEditorFontFamily = "Source Code Pro"
+	defaultEditorFontWeight = "Regular"
+	defaultEditorFontSize   = float32(14)
+)
 
 const (
 	editorThemeDarkID      = "dark"
@@ -90,11 +98,100 @@ func normalizeEditorThemeID(id string) string {
 
 type sourceCodeProTheme struct {
 	fyne.Theme
-	font    fyne.Resource
-	palette editorPalette
+	font         fyne.Resource // regular weight
+	fontBold     fyne.Resource // bold weight
+	fontItalic   fyne.Resource // italic style
+	fontBoldItal fyne.Resource // bold+italic style
+	palette      editorPalette
+	textSize     float32
 }
 
-func newSourceCodeProTheme(fontPath, editorThemeID string) (fyne.Theme, error) {
+func availableEditorFontFamilies() []string {
+	families := []string{defaultEditorFontFamily, "MSX Screen 0", "MSX Screen 1"}
+	sort.Strings(families)
+	return families
+}
+
+func editorFontWeightsForFamily(family string) []string {
+	switch normalizeEditorFontFamily(family) {
+	case "MSX Screen 0", "MSX Screen 1":
+		return []string{"Regular"}
+	default:
+		return []string{"ExtraLight", "Light", "Regular", "Medium", "SemiBold", "Bold", "ExtraBold", "Black"}
+	}
+}
+
+func editorFontFamilySupportsItalic(family string) bool {
+	return normalizeEditorFontFamily(family) == defaultEditorFontFamily
+}
+
+func normalizeEditorFontFamily(family string) string {
+	f := strings.TrimSpace(family)
+	for _, known := range availableEditorFontFamilies() {
+		if strings.EqualFold(known, f) {
+			return known
+		}
+	}
+	return defaultEditorFontFamily
+}
+
+func normalizeEditorFontWeight(family, weight string) string {
+	family = normalizeEditorFontFamily(family)
+	w := strings.TrimSpace(weight)
+	for _, known := range editorFontWeightsForFamily(family) {
+		if strings.EqualFold(known, w) {
+			return known
+		}
+	}
+	return defaultEditorFontWeight
+}
+
+func normalizeEditorFontSize(size float32) float32 {
+	if size < 8 || size > 48 {
+		return defaultEditorFontSize
+	}
+	return size
+}
+
+func nextHeavierWeight(weight string) string {
+	order := []string{"ExtraLight", "Light", "Regular", "Medium", "SemiBold", "Bold", "ExtraBold", "Black"}
+	for i, w := range order {
+		if strings.EqualFold(w, weight) {
+			if i+1 < len(order) {
+				return order[i+1]
+			}
+			return order[i]
+		}
+	}
+	return "Bold"
+}
+
+func fontFileName(family, weight string, italic bool) string {
+	family = normalizeEditorFontFamily(family)
+	weight = normalizeEditorFontWeight(family, weight)
+	suffix := ""
+	if italic {
+		suffix = "Italic"
+	}
+	switch family {
+	case "MSX Screen 0":
+		return "MSX-Screen0.ttf"
+	case "MSX Screen 1":
+		return "MSX-Screen1.ttf"
+	default:
+		return "SourceCodePro-" + weight + suffix + ".ttf"
+	}
+}
+
+func loadFontResource(path string) fyne.Resource {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	return fyne.NewStaticResource(filepath.Base(path), b)
+}
+
+func newConfiguredEditorTheme(resDir, editorThemeID, family, weight string, textSize float32) (fyne.Theme, error) {
 	editorThemeID = normalizeEditorThemeID(editorThemeID)
 	palette := editorPalettes[editorThemeID]
 
@@ -103,22 +200,68 @@ func newSourceCodeProTheme(fontPath, editorThemeID string) (fyne.Theme, error) {
 		base = theme.LightTheme()
 	}
 
-	bytes, err := os.ReadFile(fontPath)
-	if err != nil {
-		return &sourceCodeProTheme{Theme: base, palette: palette}, nil
+	family = normalizeEditorFontFamily(family)
+	weight = normalizeEditorFontWeight(family, weight)
+	textSize = normalizeEditorFontSize(textSize)
+
+	regular := loadFontResource(filepath.Join(resDir, fontFileName(family, weight, false)))
+	italic := loadFontResource(filepath.Join(resDir, fontFileName(family, weight, true)))
+	bold := loadFontResource(filepath.Join(resDir, fontFileName(family, nextHeavierWeight(weight), false)))
+	boldItalic := loadFontResource(filepath.Join(resDir, fontFileName(family, nextHeavierWeight(weight), true)))
+
+	if bold == nil {
+		bold = regular
+	}
+	if italic == nil {
+		italic = regular
+	}
+	if boldItalic == nil {
+		if italic != nil {
+			boldItalic = italic
+		} else {
+			boldItalic = bold
+		}
+	}
+
+	if regular == nil && bold == nil && italic == nil && boldItalic == nil {
+		return &sourceCodeProTheme{Theme: base, palette: palette, textSize: textSize}, nil
 	}
 	return &sourceCodeProTheme{
-		Theme:   base,
-		font:    fyne.NewStaticResource("SourceCodePro-Bold.ttf", bytes),
-		palette: palette,
+		Theme:        base,
+		font:         regular,
+		fontBold:     bold,
+		fontItalic:   italic,
+		fontBoldItal: boldItalic,
+		palette:      palette,
+		textSize:     textSize,
 	}, nil
 }
 
+func newSourceCodeProTheme(fontPath, editorThemeID string) (fyne.Theme, error) {
+	return newConfiguredEditorTheme(filepath.Dir(fontPath), editorThemeID, defaultEditorFontFamily, defaultEditorFontWeight, defaultEditorFontSize)
+}
+
 func (t *sourceCodeProTheme) Font(style fyne.TextStyle) fyne.Resource {
-	if t.font == nil {
-		return t.Theme.Font(style)
+	if style.Bold && style.Italic && t.fontBoldItal != nil {
+		return t.fontBoldItal
 	}
-	return t.font
+	if style.Bold && t.fontBold != nil {
+		return t.fontBold
+	}
+	if style.Italic && t.fontItalic != nil {
+		return t.fontItalic
+	}
+	if t.font != nil {
+		return t.font
+	}
+	return t.Theme.Font(style)
+}
+
+func (t *sourceCodeProTheme) Size(name fyne.ThemeSizeName) float32 {
+	if name == theme.SizeNameText && t.textSize > 0 {
+		return t.textSize
+	}
+	return t.Theme.Size(name)
 }
 
 func (t *sourceCodeProTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {

@@ -18,11 +18,11 @@ const (
 // ── Colours ───────────────────────────────────────────────────────────────────
 
 var (
-	lineNumBgColor       = color.NRGBA{R: 0x1e, G: 0x1e, B: 0x28, A: 0xff} // gutter background
-	lineNumCurBgColor    = color.NRGBA{R: 0xff, G: 0xe0, B: 0x00, A: 0x22} // cursor-row tint
-	lineNumNormalColor   = color.NRGBA{R: 0x66, G: 0x66, B: 0x88, A: 0xff} // dimmed number
-	lineNumCursorColor   = color.NRGBA{R: 0xff, G: 0xe0, B: 0x00, A: 0xff} // highlighted number
-	lineNumSepColor      = color.NRGBA{R: 0x44, G: 0x44, B: 0x55, A: 0xff} // right-edge separator
+	lineNumBgColor     = color.NRGBA{R: 0x1e, G: 0x1e, B: 0x28, A: 0xff} // gutter background
+	lineNumCurBgColor  = color.NRGBA{R: 0xff, G: 0xe0, B: 0x00, A: 0x22} // cursor-row tint
+	lineNumNormalColor = color.NRGBA{R: 0x66, G: 0x66, B: 0x88, A: 0xff} // dimmed number
+	lineNumCursorColor = color.NRGBA{R: 0xff, G: 0xe0, B: 0x00, A: 0xff} // highlighted number
+	lineNumSepColor    = color.NRGBA{R: 0x44, G: 0x44, B: 0x55, A: 0xff} // right-edge separator
 )
 
 // ── lineNumbersWidget ─────────────────────────────────────────────────────────
@@ -35,6 +35,8 @@ type lineNumbersWidget struct {
 	lineCount  int // total lines in document
 	topLine    int // 0-based first visible line
 	cursorLine int // 0-based cursor line (highlighted)
+	bold       bool
+	italic     bool
 }
 
 func newLineNumbersWidget() *lineNumbersWidget {
@@ -54,6 +56,22 @@ func (w *lineNumbersWidget) Update(lineCount, topLine, cursorLine int) {
 	w.Refresh()
 }
 
+// SetBold updates the bold state so that gutter width and row height match the
+// active editor font weight. Triggers a redraw when the value changes.
+func (w *lineNumbersWidget) SetBold(b bool) {
+	w.SetTextStyle(b, w.italic)
+}
+
+// SetTextStyle updates the text style used by gutter labels.
+func (w *lineNumbersWidget) SetTextStyle(bold, italic bool) {
+	if w.bold == bold && w.italic == italic {
+		return
+	}
+	w.bold = bold
+	w.italic = italic
+	w.Refresh()
+}
+
 func (w *lineNumbersWidget) CreateRenderer() fyne.WidgetRenderer {
 	r := &lineNumbersRenderer{w: w}
 	r.init()
@@ -66,7 +84,7 @@ type lineNumbersRenderer struct {
 	w        *lineNumbersWidget
 	bg       *canvas.Rectangle
 	cursorBg *canvas.Rectangle
-	sep      *canvas.Rectangle  // right-edge separator line
+	sep      *canvas.Rectangle // right-edge separator line
 	texts    []*canvas.Text
 	objects  []fyne.CanvasObject
 }
@@ -81,14 +99,21 @@ func (r *lineNumbersRenderer) init() {
 	r.texts = make([]*canvas.Text, lineNumMaxVisible)
 	for i := range r.texts {
 		t := canvas.NewText("", lineNumNormalColor)
-		t.TextStyle = fyne.TextStyle{Monospace: true}
+		t.TextStyle = fyne.TextStyle{Monospace: true, Bold: r.w.bold, Italic: r.w.italic}
 		t.TextSize = theme.TextSize()
 		r.texts[i] = t
 		r.objects = append(r.objects, t)
 	}
 }
 
+// textStyle returns the monospace text style matching the current bold state.
+func (r *lineNumbersRenderer) textStyle() fyne.TextStyle {
+	return fyne.TextStyle{Monospace: true, Bold: r.w.bold, Italic: r.w.italic}
+}
+
 // lh returns the height of one line (matches the ruler row height).
+// Always measures with non-bold monospace — Source Code Pro Regular and Bold
+// share identical advance widths, so the measurement is the same.
 func (r *lineNumbersRenderer) lh() float32 {
 	sz := fyne.MeasureText("M", theme.TextSize(), fyne.TextStyle{Monospace: true})
 	return sz.Height + 2
@@ -127,6 +152,7 @@ func (r *lineNumbersRenderer) Layout(size fyne.Size) {
 
 func (r *lineNumbersRenderer) updateRows(size fyne.Size, lh float32) {
 	ts := theme.TextSize()
+	style := r.textStyle()
 
 	// Line number labels
 	for i, t := range r.texts {
@@ -136,6 +162,7 @@ func (r *lineNumbersRenderer) updateRows(size fyne.Size, lh float32) {
 		t.Move(fyne.NewPos(0, y))
 		t.Resize(fyne.NewSize(size.Width-2, lh))
 		t.TextSize = ts
+		t.TextStyle = style
 
 		if lineNum < 1 || lineNum > r.w.lineCount {
 			t.Text = ""
@@ -182,4 +209,3 @@ func (r *lineNumbersRenderer) Destroy() {}
 func (r *lineNumbersRenderer) Objects() []fyne.CanvasObject {
 	return r.objects
 }
-

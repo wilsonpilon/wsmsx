@@ -40,6 +40,10 @@ const ctrlKTimeout = 2 * time.Second
 
 const defaultMSXBasicASCIIExt = ".asc"
 const settingEditorThemeKey = "editor_theme"
+const settingEditorFontFamilyKey = "editor_font_family"
+const settingEditorFontWeightKey = "editor_font_weight"
+const settingEditorFontSizeKey = "editor_font_size"
+const settingEditorFontItalicKey = "editor_font_italic"
 const settingOpenMSXExeKey = "tool_openmsx_exe"
 const settingMSXBas2RomExeKey = "tool_msxbas2rom_exe"
 const settingBasicDignifiedExeKey = "tool_basic_dignified_exe"
@@ -104,6 +108,7 @@ type editorTab struct {
 	undoing       bool
 
 	ruleMode bool
+	isBold   bool
 }
 
 type editorUI struct {
@@ -131,11 +136,15 @@ type editorUI struct {
 	prefixTimeoutID uint64
 	prefixExpired   uint32
 
-	tabs          *container.DocTabs
-	tabState      map[*container.TabItem]*editorTab
-	activeTab     *editorTab
-	untitledSeed  map[string]int
-	editorThemeID string
+	tabs             *container.DocTabs
+	tabState         map[*container.TabItem]*editorTab
+	activeTab        *editorTab
+	untitledSeed     map[string]int
+	editorThemeID    string
+	editorFontFamily string
+	editorFontWeight string
+	editorFontSize   float32
+	editorFontItalic bool
 
 	internalBlockClipboard string
 	calculatorLastResult   string
@@ -149,8 +158,8 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	fontPath := filepath.Join(cwd, "res", "SourceCodePro-Bold.ttf")
-	if th, thErr := newSourceCodeProTheme(fontPath, defaultEditorThemeID); thErr == nil {
+	resDir := filepath.Join(cwd, "res")
+	if th, thErr := newConfiguredEditorTheme(resDir, defaultEditorThemeID, defaultEditorFontFamily, defaultEditorFontWeight, defaultEditorFontSize); thErr == nil {
 		a.Settings().SetTheme(th)
 	}
 
@@ -165,12 +174,15 @@ func Run() error {
 	defer func() { _ = store.Close() }()
 
 	ui := &editorUI{
-		fyneApp:       a,
-		window:        a.NewWindow(version.Full() + " - Editor"),
-		resolver:      input.NewResolver(),
-		store:         store,
-		tabState:      map[*container.TabItem]*editorTab{},
-		editorThemeID: defaultEditorThemeID,
+		fyneApp:          a,
+		window:           a.NewWindow(version.Full() + " - Editor"),
+		resolver:         input.NewResolver(),
+		store:            store,
+		tabState:         map[*container.TabItem]*editorTab{},
+		editorThemeID:    defaultEditorThemeID,
+		editorFontFamily: defaultEditorFontFamily,
+		editorFontWeight: defaultEditorFontWeight,
+		editorFontSize:   defaultEditorFontSize,
 	}
 	ui.window.SetCloseIntercept(func() {
 		if ui.allowWindowClose {
@@ -184,7 +196,24 @@ func Run() error {
 	if savedEditorThemeID, _ := store.GetSetting(context.Background(), settingEditorThemeKey); savedEditorThemeID != "" {
 		ui.editorThemeID = normalizeEditorThemeID(savedEditorThemeID)
 	}
-	if th, thErr := newSourceCodeProTheme(fontPath, ui.editorThemeID); thErr == nil {
+	if savedFamily, _ := store.GetSetting(context.Background(), settingEditorFontFamilyKey); strings.TrimSpace(savedFamily) != "" {
+		ui.editorFontFamily = normalizeEditorFontFamily(savedFamily)
+	}
+	if savedWeight, _ := store.GetSetting(context.Background(), settingEditorFontWeightKey); strings.TrimSpace(savedWeight) != "" {
+		ui.editorFontWeight = normalizeEditorFontWeight(ui.editorFontFamily, savedWeight)
+	}
+	if savedSize, _ := store.GetSetting(context.Background(), settingEditorFontSizeKey); strings.TrimSpace(savedSize) != "" {
+		if parsed, parseErr := strconv.ParseFloat(strings.TrimSpace(savedSize), 32); parseErr == nil {
+			ui.editorFontSize = normalizeEditorFontSize(float32(parsed))
+		}
+	}
+	if savedItalic, _ := store.GetSetting(context.Background(), settingEditorFontItalicKey); strings.EqualFold(strings.TrimSpace(savedItalic), "true") {
+		ui.editorFontItalic = true
+	}
+	if !editorFontFamilySupportsItalic(ui.editorFontFamily) {
+		ui.editorFontItalic = false
+	}
+	if th, thErr := newConfiguredEditorTheme(resDir, ui.editorThemeID, ui.editorFontFamily, ui.editorFontWeight, ui.editorFontSize); thErr == nil {
 		a.Settings().SetTheme(th)
 	}
 
@@ -507,6 +536,7 @@ func (e *editorUI) newEditorTab(fileType newFileType) *editorTab {
 	tab.blockTag.TextStyle = fyne.TextStyle{Bold: true}
 	tab.clipTag.TextStyle = fyne.TextStyle{Bold: true}
 	e.bindTabEntry(tab)
+	e.applyEditorStyleToTab(tab)
 	tab.item = container.NewTabItem(name, e.tabEditorContent(tab))
 	e.tabState[tab.item] = tab
 	e.tabs.Append(tab.item)
@@ -1167,9 +1197,9 @@ func (e *editorUI) execute(cmd input.Command) {
 	case input.CmdAutoAlign:
 		e.cmdNotImplemented("Auto Align (Ctrl+O,A)")
 	case input.CmdStyleBold:
-		e.cmdNotImplemented("Style Bold (Ctrl+P,B)")
+		e.cmdStyleBold()
 	case input.CmdStyleFont:
-		e.cmdNotImplemented("Style Font (Ctrl+P,=)")
+		e.cmdStyleFont()
 	case input.CmdRule:
 		e.cmdRule()
 	case input.CmdCalculator:
@@ -1718,10 +1748,14 @@ func (e *editorUI) cmdOpenHelpOutline() {
 func (e *editorUI) applyCurrentEditorTheme() {
 	cwd, err := os.Getwd()
 	if err == nil {
-		fontPath := filepath.Join(cwd, "res", "SourceCodePro-Bold.ttf")
-		if th, thErr := newSourceCodeProTheme(fontPath, e.editorThemeID); thErr == nil {
+		resDir := filepath.Join(cwd, "res")
+		if th, thErr := newConfiguredEditorTheme(resDir, e.editorThemeID, e.editorFontFamily, e.editorFontWeight, e.editorFontSize); thErr == nil {
 			e.fyneApp.Settings().SetTheme(th)
 		}
+	}
+
+	for _, tab := range e.tabState {
+		e.applyEditorStyleToTab(tab)
 	}
 
 	if e.inEditor {
@@ -3599,6 +3633,162 @@ func (e *editorUI) cmdConvertLowercase() {
 
 func (e *editorUI) cmdConvertCapitalize() {
 	e.cmdConvertCase("Capitalize", "Ctrl+K,.", capitalizeText)
+}
+
+func (e *editorUI) composeEditorTextStyle(tab *editorTab) fyne.TextStyle {
+	if tab == nil {
+		return fyne.TextStyle{}
+	}
+	return fyne.TextStyle{Bold: tab.isBold, Italic: e.editorFontItalic}
+}
+
+func (e *editorUI) applyEditorStyleToTab(tab *editorTab) {
+	if tab == nil {
+		return
+	}
+	style := e.composeEditorTextStyle(tab)
+	if tab.entry != nil {
+		tab.entry.TextStyle = style
+		tab.entry.Refresh()
+	}
+	if tab.ruler != nil {
+		tab.ruler.SetTextStyle(style.Bold, style.Italic)
+	}
+	if tab.lineNums != nil {
+		tab.lineNums.SetTextStyle(style.Bold, style.Italic)
+	}
+	if tab.floatingRuler != nil {
+		tab.floatingRuler.SetTextStyle(style.Bold, style.Italic)
+	}
+}
+
+// cmdStyleBold toggles the bold font style on the active editor tab.
+// The entry text style, column ruler, line-number gutter and floating ruler
+// are all updated so that their character-size measurements stay in sync.
+func (e *editorUI) cmdStyleBold() {
+	tab := e.activeTab
+	if tab == nil {
+		return
+	}
+	tab.isBold = !tab.isBold
+	b := tab.isBold
+	e.applyEditorStyleToTab(tab)
+
+	if e.status != nil {
+		state := "off"
+		if b {
+			state = "on"
+		}
+		e.status.SetText("Bold: " + state + "  (Ctrl+P,B to toggle)")
+	}
+}
+
+func (e *editorUI) cmdStyleFont() {
+	if e.window == nil {
+		return
+	}
+
+	families := availableEditorFontFamilies()
+	familySelect := widget.NewSelect(families, nil)
+	familySelect.SetSelected(normalizeEditorFontFamily(e.editorFontFamily))
+
+	weightSelect := widget.NewSelect(editorFontWeightsForFamily(familySelect.Selected), nil)
+	weightSelect.SetSelected(normalizeEditorFontWeight(familySelect.Selected, e.editorFontWeight))
+
+	sizeEntry := widget.NewEntry()
+	sizeEntry.SetText(strconv.Itoa(int(normalizeEditorFontSize(e.editorFontSize))))
+
+	italicCheck := widget.NewCheck("Italic", nil)
+	italicCheck.SetChecked(e.editorFontItalic)
+	if !editorFontFamilySupportsItalic(familySelect.Selected) {
+		italicCheck.SetChecked(false)
+		italicCheck.Disable()
+	}
+
+	widthSelect := widget.NewSelect([]string{"Normal", "Narrow (not available)"}, nil)
+	widthSelect.SetSelected("Normal")
+
+	familySelect.OnChanged = func(next string) {
+		next = normalizeEditorFontFamily(next)
+		weightOptions := editorFontWeightsForFamily(next)
+		weightSelect.Options = weightOptions
+		weightSelect.SetSelected(normalizeEditorFontWeight(next, weightSelect.Selected))
+		weightSelect.Refresh()
+
+		supportsItalic := editorFontFamilySupportsItalic(next)
+		if supportsItalic {
+			italicCheck.Enable()
+		} else {
+			italicCheck.Disable()
+			italicCheck.SetChecked(false)
+		}
+	}
+
+	note := widget.NewLabel("Only bundled fixed-width/programming fonts are listed. Narrow variants are currently unavailable.")
+	note.Wrapping = fyne.TextWrapWord
+
+	content := container.NewVBox(
+		widget.NewForm(
+			widget.NewFormItem("Font Family", familySelect),
+			widget.NewFormItem("Size", sizeEntry),
+			widget.NewFormItem("Weight", weightSelect),
+			widget.NewFormItem("Style", italicCheck),
+			widget.NewFormItem("Width", widthSelect),
+		),
+		note,
+	)
+
+	dlg := dialog.NewCustomConfirm("Font", "Apply", "Cancel", content, func(ok bool) {
+		if !ok {
+			return
+		}
+
+		nextFamily := normalizeEditorFontFamily(familySelect.Selected)
+		nextWeight := normalizeEditorFontWeight(nextFamily, weightSelect.Selected)
+		nextItalic := italicCheck.Checked && editorFontFamilySupportsItalic(nextFamily)
+
+		sizeNum, err := strconv.ParseFloat(strings.TrimSpace(sizeEntry.Text), 32)
+		if err != nil {
+			dialog.ShowInformation("Font", "Size must be a valid number (8..48).", e.window)
+			return
+		}
+		nextSize := normalizeEditorFontSize(float32(sizeNum))
+		if nextSize != float32(sizeNum) {
+			dialog.ShowInformation("Font", "Size must be between 8 and 48.", e.window)
+			return
+		}
+
+		e.editorFontFamily = nextFamily
+		e.editorFontWeight = nextWeight
+		e.editorFontSize = nextSize
+		e.editorFontItalic = nextItalic
+
+		e.applyCurrentEditorTheme()
+
+		for _, tab := range e.tabState {
+			e.applyEditorStyleToTab(tab)
+		}
+
+		if e.store != nil {
+			_ = e.store.SetSetting(context.Background(), settingEditorFontFamilyKey, e.editorFontFamily)
+			_ = e.store.SetSetting(context.Background(), settingEditorFontWeightKey, e.editorFontWeight)
+			_ = e.store.SetSetting(context.Background(), settingEditorFontSizeKey, fmt.Sprintf("%.0f", e.editorFontSize))
+			_ = e.store.SetSetting(context.Background(), settingEditorFontItalicKey, strconv.FormatBool(e.editorFontItalic))
+		}
+
+		if e.status != nil {
+			status := fmt.Sprintf("Font: %s %s %.0fpt", e.editorFontFamily, e.editorFontWeight, e.editorFontSize)
+			if e.editorFontItalic {
+				status += " Italic"
+			}
+			if widthSelect.Selected != "Normal" {
+				status += " (narrow unavailable)"
+			}
+			e.status.SetText(status)
+		}
+	}, e.window)
+	dlg.Resize(fyne.NewSize(560, 360))
+	dlg.Show()
 }
 
 func (e *editorUI) cmdConvertCase(mode, chord string, transform func(string) string) {

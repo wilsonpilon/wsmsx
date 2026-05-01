@@ -8,6 +8,19 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-05-01
+
+### Added
+
+- Added `Style -> Font... (Ctrl+P,=)` dialog to choose bundled fixed-width fonts, size, weight, and italic style.
+- Added persistence for editor font family, weight, size, and italic preferences.
+
+### Changed
+
+- Editor theme application now rebuilds with configurable font family/weight/size.
+- `Style -> Bold (Ctrl+P,B)` now preserves the current italic preference while toggling bold.
+- Bumped app version to `0.1.9` in `internal/version/version.go`.
+
 ## [0.1.7] - 2026-04-28
 
 ### Added
