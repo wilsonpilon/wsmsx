@@ -9,120 +9,81 @@ import (
 	"fyne.io/fyne/v2/theme"
 )
 
-const defaultSyntaxThemeID = "vscode-dark-plus"
-const customSyntaxThemeID = "custom"
 const defaultEditorThemeID = "dark"
 
 const (
-	editorThemeDarkID  = "dark"
-	editorThemeLightID = "light"
+	editorThemeDarkID      = "dark"
+	editorThemeLightID     = "light"
+	editorThemeOneDarkID   = "one-dark"
+	editorThemeMonokaiID   = "monokai"
+	editorThemeSolarizedID = "solarized-dark"
+	editorThemeGithubID    = "github-dark"
 )
 
-const (
-	colorNameSyntaxKeyword  fyne.ThemeColorName = "ws7.syntax.keyword"
-	colorNameSyntaxFunction fyne.ThemeColorName = "ws7.syntax.function"
-	colorNameSyntaxString   fyne.ThemeColorName = "ws7.syntax.string"
-	colorNameSyntaxNumber   fyne.ThemeColorName = "ws7.syntax.number"
-	colorNameSyntaxComment  fyne.ThemeColorName = "ws7.syntax.comment"
-	colorNameSyntaxLiteral  fyne.ThemeColorName = "ws7.syntax.literal"
-)
-
-type syntaxThemeOption struct {
-	ID    string
-	Label string
+type editorPalette struct {
+	Background      color.NRGBA
+	Foreground      color.NRGBA
+	MenuBackground  color.NRGBA
+	InputBackground color.NRGBA
+	Overlay         color.NRGBA
+	Primary         color.NRGBA
 }
 
-type syntaxPalette struct {
-	Keyword  color.NRGBA
-	Function color.NRGBA
-	String   color.NRGBA
-	Number   color.NRGBA
-	Comment  color.NRGBA
-	Literal  color.NRGBA
-}
-
-var syntaxThemeOptions = []syntaxThemeOption{
-	{ID: "vscode-dark-plus", Label: "VS Code Dark+"},
-	{ID: "vscode-light-plus", Label: "VS Code Light+"},
-	{ID: "sublime-monokai", Label: "Sublime Monokai"},
-	{ID: "sublime-mariana", Label: "Sublime Mariana"},
-	{ID: customSyntaxThemeID, Label: "Custom"},
-}
-
-var syntaxPalettes = map[string]syntaxPalette{
-	"vscode-dark-plus": {
-		Keyword:  color.NRGBA{R: 0x56, G: 0x9C, B: 0xD6, A: 0xFF},
-		Function: color.NRGBA{R: 0xDC, G: 0xDC, B: 0xAA, A: 0xFF},
-		String:   color.NRGBA{R: 0xCE, G: 0x91, B: 0x78, A: 0xFF},
-		Number:   color.NRGBA{R: 0xB5, G: 0xCE, B: 0xA8, A: 0xFF},
-		Comment:  color.NRGBA{R: 0x6A, G: 0x99, B: 0x55, A: 0xFF},
-		Literal:  color.NRGBA{R: 0xD4, G: 0xD4, B: 0xD4, A: 0xFF},
+var editorPalettes = map[string]editorPalette{
+	editorThemeDarkID: {
+		Background:      color.NRGBA{R: 0x1A, G: 0x1A, B: 0x1A, A: 0xFF},
+		Foreground:      color.NRGBA{R: 0xE0, G: 0xE0, B: 0xE0, A: 0xFF},
+		MenuBackground:  color.NRGBA{R: 0x33, G: 0x33, B: 0x33, A: 0xFF},
+		InputBackground: color.NRGBA{R: 0x12, G: 0x12, B: 0x12, A: 0xFF},
+		Overlay:         color.NRGBA{R: 0x3D, G: 0x3D, B: 0x3D, A: 0xFF},
+		Primary:         color.NRGBA{R: 0x00, G: 0x7A, B: 0xCC, A: 0xFF},
 	},
-	"vscode-light-plus": {
-		Keyword:  color.NRGBA{R: 0x00, G: 0x00, B: 0xFF, A: 0xFF},
-		Function: color.NRGBA{R: 0x79, G: 0x50, B: 0xE8, A: 0xFF},
-		String:   color.NRGBA{R: 0xA3, G: 0x15, B: 0x15, A: 0xFF},
-		Number:   color.NRGBA{R: 0x09, G: 0x8A, B: 0x00, A: 0xFF},
-		Comment:  color.NRGBA{R: 0x00, G: 0x80, B: 0x00, A: 0xFF},
-		Literal:  color.NRGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xFF},
+	editorThemeLightID: {
+		Background:      color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF},
+		Foreground:      color.NRGBA{R: 0x20, G: 0x20, B: 0x20, A: 0xFF},
+		MenuBackground:  color.NRGBA{R: 0xF3, G: 0xF3, B: 0xF3, A: 0xFF},
+		InputBackground: color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF},
+		Overlay:         color.NRGBA{R: 0xE5, G: 0xE5, B: 0xE5, A: 0xFF},
+		Primary:         color.NRGBA{R: 0x00, G: 0x54, B: 0x99, A: 0xFF},
 	},
-	"sublime-monokai": {
-		Keyword:  color.NRGBA{R: 0xF9, G: 0x26, B: 0x72, A: 0xFF},
-		Function: color.NRGBA{R: 0xA6, G: 0xE2, B: 0x2E, A: 0xFF},
-		String:   color.NRGBA{R: 0xE6, G: 0xDB, B: 0x74, A: 0xFF},
-		Number:   color.NRGBA{R: 0xAE, G: 0x81, B: 0xFF, A: 0xFF},
-		Comment:  color.NRGBA{R: 0x75, G: 0x71, B: 0x5E, A: 0xFF},
-		Literal:  color.NRGBA{R: 0xF8, G: 0xF8, B: 0xF2, A: 0xFF},
+	editorThemeOneDarkID: {
+		Background:      color.NRGBA{R: 0x28, G: 0x2C, B: 0x34, A: 0xFF},
+		Foreground:      color.NRGBA{R: 0xAB, G: 0xB2, B: 0xBF, A: 0xFF},
+		MenuBackground:  color.NRGBA{R: 0x21, G: 0x25, B: 0x2B, A: 0xFF},
+		InputBackground: color.NRGBA{R: 0x1E, G: 0x22, B: 0x27, A: 0xFF},
+		Overlay:         color.NRGBA{R: 0x3B, G: 0x40, B: 0x48, A: 0xFF},
+		Primary:         color.NRGBA{R: 0x61, G: 0xAF, B: 0xEF, A: 0xFF},
 	},
-	"sublime-mariana": {
-		Keyword:  color.NRGBA{R: 0xC7, G: 0x92, B: 0xEA, A: 0xFF},
-		Function: color.NRGBA{R: 0x82, G: 0xAA, B: 0xFF, A: 0xFF},
-		String:   color.NRGBA{R: 0xC3, G: 0xE8, B: 0x8D, A: 0xFF},
-		Number:   color.NRGBA{R: 0xF7, G: 0x8C, B: 0x6C, A: 0xFF},
-		Comment:  color.NRGBA{R: 0x67, G: 0x6E, B: 0x95, A: 0xFF},
-		Literal:  color.NRGBA{R: 0xD8, G: 0xDE, B: 0xE9, A: 0xFF},
+	editorThemeMonokaiID: {
+		Background:      color.NRGBA{R: 0x27, G: 0x28, B: 0x22, A: 0xFF},
+		Foreground:      color.NRGBA{R: 0xF8, G: 0xF8, B: 0xF2, A: 0xFF},
+		MenuBackground:  color.NRGBA{R: 0x19, G: 0x19, B: 0x19, A: 0xFF},
+		InputBackground: color.NRGBA{R: 0x10, G: 0x10, B: 0x10, A: 0xFF},
+		Overlay:         color.NRGBA{R: 0x3E, G: 0x3D, B: 0x32, A: 0xFF},
+		Primary:         color.NRGBA{R: 0xA6, G: 0xE2, B: 0x2E, A: 0xFF},
 	},
-}
-
-func defaultCustomSyntaxPalette() syntaxPalette {
-	return syntaxPalettes[defaultSyntaxThemeID]
-}
-
-func normalizeSyntaxThemeID(id string) string {
-	if id == customSyntaxThemeID {
-		return id
-	}
-	if _, ok := syntaxPalettes[id]; ok {
-		return id
-	}
-	return defaultSyntaxThemeID
-}
-
-func syntaxThemeLabel(id string) string {
-	id = normalizeSyntaxThemeID(id)
-	for _, opt := range syntaxThemeOptions {
-		if opt.ID == id {
-			return opt.Label
-		}
-	}
-	return "VS Code Dark+"
-}
-
-func resolveSyntaxPalette(themeID string, custom syntaxPalette) syntaxPalette {
-	themeID = normalizeSyntaxThemeID(themeID)
-	if themeID == customSyntaxThemeID {
-		return custom
-	}
-	if p, ok := syntaxPalettes[themeID]; ok {
-		return p
-	}
-	return syntaxPalettes[defaultSyntaxThemeID]
+	editorThemeSolarizedID: {
+		Background:      color.NRGBA{R: 0x00, G: 0x2B, B: 0x36, A: 0xFF},
+		Foreground:      color.NRGBA{R: 0x83, G: 0x94, B: 0x96, A: 0xFF},
+		MenuBackground:  color.NRGBA{R: 0x07, G: 0x36, B: 0x42, A: 0xFF},
+		InputBackground: color.NRGBA{R: 0x00, G: 0x1E, B: 0x26, A: 0xFF},
+		Overlay:         color.NRGBA{R: 0x58, G: 0x6E, B: 0x75, A: 0xFF},
+		Primary:         color.NRGBA{R: 0x26, G: 0x8B, B: 0xD2, A: 0xFF},
+	},
+	editorThemeGithubID: {
+		Background:      color.NRGBA{R: 0x0D, G: 0x11, B: 0x17, A: 0xFF},
+		Foreground:      color.NRGBA{R: 0xC9, G: 0xD1, B: 0xD9, A: 0xFF},
+		MenuBackground:  color.NRGBA{R: 0x16, G: 0x1B, B: 0x22, A: 0xFF},
+		InputBackground: color.NRGBA{R: 0x01, G: 0x04, B: 0x09, A: 0xFF},
+		Overlay:         color.NRGBA{R: 0x30, G: 0x36, B: 0x3D, A: 0xFF},
+		Primary:         color.NRGBA{R: 0x58, G: 0xA6, B: 0xFF, A: 0xFF},
+	},
 }
 
 func normalizeEditorThemeID(id string) string {
 	id = strings.TrimSpace(strings.ToLower(id))
-	if id == editorThemeLightID {
-		return editorThemeLightID
+	if _, ok := editorPalettes[id]; ok {
+		return id
 	}
 	return editorThemeDarkID
 }
@@ -130,17 +91,18 @@ func normalizeEditorThemeID(id string) string {
 type sourceCodeProTheme struct {
 	fyne.Theme
 	font    fyne.Resource
-	palette syntaxPalette
+	palette editorPalette
 }
 
-func newSourceCodeProTheme(fontPath, syntaxThemeID string, customPalette syntaxPalette, editorThemeID string) (fyne.Theme, error) {
-	syntaxThemeID = normalizeSyntaxThemeID(syntaxThemeID)
+func newSourceCodeProTheme(fontPath, editorThemeID string) (fyne.Theme, error) {
 	editorThemeID = normalizeEditorThemeID(editorThemeID)
-	palette := resolveSyntaxPalette(syntaxThemeID, customPalette)
+	palette := editorPalettes[editorThemeID]
+
 	base := theme.DarkTheme()
 	if editorThemeID == editorThemeLightID {
 		base = theme.LightTheme()
 	}
+
 	bytes, err := os.ReadFile(fontPath)
 	if err != nil {
 		return &sourceCodeProTheme{Theme: base, palette: palette}, nil
@@ -161,19 +123,19 @@ func (t *sourceCodeProTheme) Font(style fyne.TextStyle) fyne.Resource {
 
 func (t *sourceCodeProTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
 	switch name {
-	case theme.ColorNamePrimary, colorNameSyntaxKeyword:
-		return t.palette.Keyword
-	case theme.ColorNameSuccess, colorNameSyntaxFunction:
-		return t.palette.Function
-	case theme.ColorNameWarning, colorNameSyntaxString:
-		return t.palette.String
-	case theme.ColorNameError, colorNameSyntaxNumber:
-		return t.palette.Number
-	case theme.ColorNameDisabled, colorNameSyntaxComment:
-		return t.palette.Comment
-	case colorNameSyntaxLiteral:
-		return t.palette.Literal
+	case theme.ColorNameBackground:
+		return t.palette.Background
+	case theme.ColorNameInputBackground:
+		return t.palette.InputBackground
+	case theme.ColorNameMenuBackground, theme.ColorNameOverlayBackground:
+		return t.palette.MenuBackground
+	case theme.ColorNameForeground:
+		return t.palette.Foreground
+	case theme.ColorNamePrimary:
+		return t.palette.Primary
+	case theme.ColorNameSelection, theme.ColorNameFocus, theme.ColorNameHover:
+		c := t.palette.Primary
+		return color.NRGBA{R: c.R, G: c.G, B: c.B, A: 0x44}
 	}
 	return t.Theme.Color(name, variant)
 }
-

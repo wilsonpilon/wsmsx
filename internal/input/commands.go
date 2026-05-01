@@ -33,6 +33,7 @@ const (
 	CmdPrefixP  Command = "prefix_p"
 	CmdPrefixQ  Command = "prefix_q"
 	CmdPrefixQN Command = "prefix_qn"
+	CmdPrefixM  Command = "prefix_m"
 
 	// ── File (Ctrl+K / Ctrl+O / Ctrl+P / Ctrl+K,Q) ───────────────────────────
 	CmdSave            Command = "save"
@@ -60,6 +61,10 @@ const (
 	CmdCopyFromClipboard Command = "copy_from_clipboard"
 	CmdCopyToClipboard   Command = "copy_to_clipboard"
 	CmdCopyToFile        Command = "copy_to_file"
+	CmdIncludeFile       Command = "include_file"
+	CmdConvertUppercase  Command = "convert_uppercase"
+	CmdConvertLowercase  Command = "convert_lowercase"
+	CmdConvertCapitalize Command = "convert_capitalize"
 	CmdDeleteBlock       Command = "delete_block"
 	CmdMarkPreviousBlock Command = "mark_previous_block"
 	CmdColumnBlockMode   Command = "column_block_mode"
@@ -91,10 +96,13 @@ const (
 	CmdConvertNote Command = "convert_note"
 
 	// ── Settings (Ctrl+O) ─────────────────────────────────────────────────────
-	CmdAutoAlign   Command = "auto_align"
-	CmdRule        Command = "rule"
-	CmdCalculator  Command = "calculator"
-	CmdCloseDialog Command = "close_dialog"
+	CmdAutoAlign          Command = "auto_align"
+	CmdRule               Command = "rule"
+	CmdCalculator         Command = "calculator"
+	CmdStyleBold          Command = "style_bold"
+	CmdStyleFont          Command = "style_font"
+	CmdInsertExtendedChar Command = "insert_extended_char"
+	CmdCloseDialog        Command = "close_dialog"
 )
 
 // MarkerSetCmd returns the Command for setting marker digit (0–9).
@@ -177,6 +185,14 @@ func (r *Resolver) Resolve(ctrlKey string) (Command, bool, error) {
 			return CmdCopyToClipboard, false, nil
 		case "W":
 			return CmdCopyToFile, false, nil
+		case "R":
+			return CmdIncludeFile, false, nil
+		case "\"":
+			return CmdConvertUppercase, false, nil
+		case "'":
+			return CmdConvertLowercase, false, nil
+		case ".":
+			return CmdConvertCapitalize, false, nil
 		case "Y":
 			return CmdDeleteBlock, false, nil
 		case "U":
@@ -238,6 +254,10 @@ func (r *Resolver) Resolve(ctrlKey string) (Command, bool, error) {
 	case "P":
 		r.prefix = ""
 		switch ctrlKey {
+		case "B":
+			return CmdStyleBold, false, nil
+		case "=":
+			return CmdStyleFont, false, nil
 		case "?":
 			return CmdChangePrinter, false, nil
 		default:
@@ -303,6 +323,15 @@ func (r *Resolver) Resolve(ctrlKey string) (Command, bool, error) {
 		default:
 			return "", false, fmt.Errorf("unsupported sequence Ctrl+Q,N+%s", ctrlKey)
 		}
+
+	case "M":
+		r.prefix = ""
+		switch ctrlKey {
+		case "G":
+			return CmdInsertExtendedChar, false, nil
+		default:
+			return "", false, fmt.Errorf("unsupported sequence Ctrl+M+%s", ctrlKey)
+		}
 	}
 
 	// No prefix — single-key Ctrl commands
@@ -345,6 +374,9 @@ func (r *Resolver) Resolve(ctrlKey string) (Command, bool, error) {
 	case "Q":
 		r.prefix = "Q"
 		return CmdPrefixQ, true, nil
+	case "M":
+		r.prefix = "M"
+		return CmdPrefixM, true, nil
 	default:
 		return "", false, fmt.Errorf("unsupported Ctrl+%s", ctrlKey)
 	}

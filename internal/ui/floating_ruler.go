@@ -86,7 +86,7 @@ func (r *floatingRulerWidget) MarkBlockPoint(pos int) string {
 		r.hasBlockStart = true
 		r.hasBlockEnd = false
 		r.Refresh()
-		return fmt.Sprintf("RULE: bloco inicio=%d (pressione B para fim)", pos)
+		return fmt.Sprintf("RULE: block start=%d (press B for end)", pos)
 	}
 	r.blockEndPos = pos
 	r.hasBlockEnd = true
@@ -95,7 +95,7 @@ func (r *floatingRulerWidget) MarkBlockPoint(pos int) string {
 	if start > end {
 		start, end = end, start
 	}
-	return fmt.Sprintf("RULE: bloco %d..%d (%d chars)", start, end, (end-start)+1)
+	return fmt.Sprintf("RULE: block %d..%d (%d chars)", start, end, (end-start)+1)
 }
 
 // UpdateCursor updates the current cursor position for visual highlighting.
@@ -194,7 +194,7 @@ func (r *floatingRulerRenderer) init() {
 
 	// Header text
 	headerTextColor := color.NRGBA{R: 0xff, G: 0xe0, B: 0x00, A: 0xff}
-	r.headerTxt = canvas.NewText("RULER (drag to move)  B=inicio/fim do bloco", headerTextColor)
+	r.headerTxt = canvas.NewText("RULER (drag to move)  B=start/end block", headerTextColor)
 	r.headerTxt.TextSize = theme.TextSize() - 2
 	r.headerTxt.TextStyle = fyne.TextStyle{Monospace: true}
 
@@ -267,17 +267,17 @@ func (r *floatingRulerRenderer) updateText() {
 	distance := cursor - origin
 
 	// Display distance and origin info
-	originStr := fmt.Sprintf("Origem: char %d  |  Cursor: char %d", origin, cursor)
-	distStr := fmt.Sprintf(">>> Distancia: %+d chars <<<", distance)
-	blockStr := "Bloco: pressione B no inicio e B no fim"
+	originStr := fmt.Sprintf("Origin: char %d  |  Cursor: char %d", origin, cursor)
+	distStr := fmt.Sprintf(">>> Distance: %+d chars <<<", distance)
+	blockStr := "Block: press B at start and B at end"
 	if r.w.hasBlockStart && !r.w.hasBlockEnd {
-		blockStr = fmt.Sprintf("Bloco: inicio=%d (aguardando fim com B)", r.w.blockStartPos)
+		blockStr = fmt.Sprintf("Block: start=%d (waiting for B at end)", r.w.blockStartPos)
 	} else if r.w.hasBlockStart && r.w.hasBlockEnd {
 		start, end := r.w.blockStartPos, r.w.blockEndPos
 		if start > end {
 			start, end = end, start
 		}
-		blockStr = fmt.Sprintf("Bloco: %d..%d  Total: %d chars", start, end, (end-start)+1)
+		blockStr = fmt.Sprintf("Block: %d..%d  Total: %d chars", start, end, (end-start)+1)
 	}
 
 	r.markText.Text = originStr

@@ -11,6 +11,20 @@ import (
 	"ws7/internal/input"
 )
 
+func makeSplitViewTestTab(name string) *editorTab {
+	tab := &editorTab{
+		entry:         newCursorEntry(),
+		ruler:         newRulerWidget(),
+		floatingRuler: newFloatingRulerWidget(),
+		lineNums:      newLineNumbersWidget(),
+		status:        widget.NewLabel(""),
+		blockTag:      widget.NewLabel(""),
+		clipTag:       widget.NewLabel(""),
+	}
+	tab.item = container.NewTabItem(name, widget.NewLabel("placeholder"))
+	return tab
+}
+
 func containsCanvasObject(objects []fyne.CanvasObject, target fyne.CanvasObject) bool {
 	for _, obj := range objects {
 		if obj == target {
@@ -118,8 +132,8 @@ func TestBMarksBlockWhenRuleActive(t *testing.T) {
 	if got := tab.floatingRuler.blockEndPos; got != 5 {
 		t.Fatalf("block end = %d, want 5", got)
 	}
-	if got := ui.status.Text; got != "RULE: bloco 1..5 (5 chars)" {
-		t.Fatalf("status = %q, want %q", got, "RULE: bloco 1..5 (5 chars)")
+	if got := ui.status.Text; got != "RULE: block 1..5 (5 chars)" {
+		t.Fatalf("status = %q, want %q", got, "RULE: block 1..5 (5 chars)")
 	}
 }
 
@@ -136,7 +150,7 @@ func TestEditorUtilitiesMenuContainsRule(t *testing.T) {
 	if len(utilities.Items) < 1 {
 		t.Fatalf("expected Utilities items")
 	}
-	if got := utilities.Items[0].Label; got != "RULE (Regua)               Ctrl+Q,R  ESC para sair" {
+	if got := utilities.Items[0].Label; got != "RULE                       Ctrl+Q,R  ESC to exit" {
 		t.Fatalf("first Utilities item = %q, want RULE item", got)
 	}
 }
@@ -156,6 +170,48 @@ func TestEditorUtilitiesMenuContainsCalculator(t *testing.T) {
 	}
 	if got := utilities.Items[1].Label; got != "Calculator                 Ctrl+Q,M" {
 		t.Fatalf("second Utilities item = %q, want Calculator item", got)
+	}
+}
+
+func TestEditorStyleMenuContainsExpectedItems(t *testing.T) {
+	ui := &editorUI{}
+	menu := ui.makeEditorMenu()
+	if menu == nil || len(menu.Items) < 4 {
+		t.Fatalf("expected editor main menu with Style")
+	}
+	style := menu.Items[3]
+	if style == nil || style.Label != "Style" {
+		t.Fatalf("expected Style menu at top-level index 3")
+	}
+	if len(style.Items) < 3 {
+		t.Fatalf("expected Style menu items")
+	}
+	if got := style.Items[0].Label; got != "Bold                     Ctrl+P,B" {
+		t.Fatalf("first Style item = %q, want Bold", got)
+	}
+	if got := style.Items[1].Label; got != "Font...                  Ctrl+P,=" {
+		t.Fatalf("second Style item = %q, want Font", got)
+	}
+	if got := style.Items[2].Label; got != "Convert Case" {
+		t.Fatalf("third Style item = %q, want Convert Case", got)
+	}
+}
+
+func TestEditorInsertMenuContainsIncludeFile(t *testing.T) {
+	ui := &editorUI{}
+	menu := ui.makeEditorMenu()
+	if menu == nil || len(menu.Items) < 3 {
+		t.Fatalf("expected editor main menu with Insert")
+	}
+	insert := menu.Items[2]
+	if insert == nil || insert.Label != "Insert" {
+		t.Fatalf("expected Insert menu at top-level index 2")
+	}
+	if len(insert.Items) < 1 {
+		t.Fatalf("expected Insert items")
+	}
+	if got := insert.Items[0].Label; got != "Include File            Ctrl+K,R" {
+		t.Fatalf("first Insert item = %q, want Include File item", got)
 	}
 }
 
@@ -184,8 +240,8 @@ func TestHandleEditorShortcutTriggersRuleChordToggle(t *testing.T) {
 	if tab.ruleMode != true {
 		t.Fatal("expected RULE mode enabled after Ctrl+Q,R")
 	}
-	if got := ui.status.Text; got != "RULE: on (ESC para sair)" {
-		t.Fatalf("status = %q, want %q", got, "RULE: on (ESC para sair)")
+	if got := ui.status.Text; got != "RULE: on (ESC to exit)" {
+		t.Fatalf("status = %q, want %q", got, "RULE: on (ESC to exit)")
 	}
 
 	if handled := ui.handleEditorShortcut(&desktop.CustomShortcut{KeyName: fyne.KeyQ, Modifier: fyne.KeyModifierControl}); !handled {
@@ -223,5 +279,29 @@ func TestHandleEditorShortcutTriggersCalculatorChord(t *testing.T) {
 	}
 	if handled := ui.handleEditorShortcut(&desktop.CustomShortcut{KeyName: fyne.KeyM, Modifier: fyne.KeyModifierControl}); !handled {
 		t.Fatal("expected Ctrl+Q,M to be handled")
+	}
+}
+
+func TestHandleEditorShortcutTriggersIncludeFileChord(t *testing.T) {
+	tab := makeSplitViewTestTab("A")
+	ui := &editorUI{
+		inEditor:  true,
+		resolver:  input.NewResolver(),
+		status:    widget.NewLabel(""),
+		activeTab: tab,
+		tabState:  map[*container.TabItem]*editorTab{tab.item: tab},
+		entry:     tab.entry,
+	}
+	ui.bindTabEntry(tab)
+	tab.item.Content = ui.tabEditorContent(tab)
+
+	if handled := ui.handleEditorShortcut(&desktop.CustomShortcut{KeyName: fyne.KeyK, Modifier: fyne.KeyModifierControl}); !handled {
+		t.Fatal("expected Ctrl+K prefix to be handled")
+	}
+	if !ui.resolver.HasPrefix() {
+		t.Fatal("expected Ctrl+K prefix state to remain active")
+	}
+	if handled := ui.handleEditorShortcut(&desktop.CustomShortcut{KeyName: fyne.KeyR, Modifier: fyne.KeyModifierControl}); !handled {
+		t.Fatal("expected Ctrl+K,R to be handled")
 	}
 }

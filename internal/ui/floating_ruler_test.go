@@ -91,11 +91,11 @@ func TestFloatingRulerMarkBlockPoint(t *testing.T) {
 	ruler := newFloatingRulerWidget()
 
 	msg := ruler.MarkBlockPoint(4)
-	if msg != "RULE: bloco inicio=4 (pressione B para fim)" {
+	if msg != "RULE: block start=4 (press B for end)" {
 		t.Fatalf("unexpected first message: %q", msg)
 	}
 	msg = ruler.MarkBlockPoint(10)
-	if msg != "RULE: bloco 4..10 (7 chars)" {
+	if msg != "RULE: block 4..10 (7 chars)" {
 		t.Fatalf("unexpected second message: %q", msg)
 	}
 }

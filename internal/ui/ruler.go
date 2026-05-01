@@ -33,7 +33,7 @@ func isMarkCol(col int) bool {
 type cursorEntry struct {
 	widget.Entry
 	onCursorMoved     func(row, col int)
-	onViewportOffset  func(offsetY float32)
+	onViewportOffset  func(x, y float32)
 	onSecondaryTapped func(row, col int)
 	onKeyBeforeInput  func(key *fyne.KeyEvent) bool
 	onRuneBeforeInput func(r rune) bool
@@ -50,9 +50,53 @@ func newCursorEntry() *cursorEntry {
 }
 
 func (e *cursorEntry) notify() {
+	e.emitViewportOffset()
 	if e.onCursorMoved != nil {
 		e.onCursorMoved(e.CursorRow, e.CursorColumn)
 	}
+}
+
+func (e *cursorEntry) emitViewportOffset() {
+	if e.onViewportOffset == nil {
+		return
+	}
+	x, y, ok := e.readInternalScrollOffset()
+	if !ok {
+		return
+	}
+	e.onViewportOffset(x, y)
+}
+
+func (e *cursorEntry) readInternalScrollOffset() (x, y float32, ok bool) {
+	defer func() {
+		if recover() != nil {
+			x, y, ok = 0, 0, false
+		}
+	}()
+
+	field := reflect.ValueOf(&e.Entry).Elem().FieldByName("scroll")
+	if !field.IsValid() || field.IsNil() {
+		return 0, 0, false
+	}
+	scroll := reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem()
+	if scroll.IsNil() {
+		return 0, 0, false
+	}
+	scrollElem := scroll.Elem()
+	offset := scrollElem.FieldByName("Offset")
+	if !offset.IsValid() {
+		return 0, 0, false
+	}
+	yField := offset.FieldByName("Y")
+	if !yField.IsValid() {
+		return 0, 0, false
+	}
+	y = float32(yField.Float())
+	xField := offset.FieldByName("X")
+	if xField.IsValid() {
+		x = float32(xField.Float())
+	}
+	return x, y, true
 }
 
 func (e *cursorEntry) CreateRenderer() fyne.WidgetRenderer {
@@ -135,6 +179,10 @@ func (e *cursorEntry) attachInternalScrollHook() {
 	if e.onViewportOffset == nil {
 		return
 	}
+	defer func() {
+		_ = recover()
+	}()
+
 	field := reflect.ValueOf(&e.Entry).Elem().FieldByName("scroll")
 	if !field.IsValid() || field.IsNil() {
 		return
@@ -145,22 +193,18 @@ func (e *cursorEntry) attachInternalScrollHook() {
 	}
 	scrollElem := scroll.Elem()
 	onScrolled := scrollElem.FieldByName("OnScrolled")
-	if onScrolled.IsValid() {
+	if onScrolled.IsValid() && onScrolled.CanSet() {
 		fn := reflect.MakeFunc(onScrolled.Type(), func(args []reflect.Value) []reflect.Value {
 			if len(args) > 0 {
 				if pos, ok := args[0].Interface().(fyne.Position); ok {
-					e.onViewportOffset(pos.Y)
+					e.onViewportOffset(pos.X, pos.Y)
 				}
 			}
 			return nil
 		})
 		onScrolled.Set(fn)
 	}
-	if offset := scrollElem.FieldByName("Offset"); offset.IsValid() {
-		if y := offset.FieldByName("Y"); y.IsValid() {
-			e.onViewportOffset(float32(y.Float()))
-		}
-	}
+	e.emitViewportOffset()
 }
 
 func (e *cursorEntry) TypedKey(key *fyne.KeyEvent) {
@@ -196,7 +240,9 @@ func (e *cursorEntry) Tapped(ev *fyne.PointEvent) {
 	e.Entry.Tapped(ev)
 	go func() {
 		time.Sleep(32 * time.Millisecond)
-		e.notify()
+		fyne.Do(func() {
+			e.notify()
+		})
 	}()
 }
 
@@ -206,10 +252,12 @@ func (e *cursorEntry) TappedSecondary(ev *fyne.PointEvent) {
 	e.Entry.TappedSecondary(ev)
 	go func() {
 		time.Sleep(32 * time.Millisecond)
-		e.notify()
-		if e.onSecondaryTapped != nil {
-			e.onSecondaryTapped(e.CursorRow, e.CursorColumn)
-		}
+		fyne.Do(func() {
+			e.notify()
+			if e.onSecondaryTapped != nil {
+				e.onSecondaryTapped(e.CursorRow, e.CursorColumn)
+			}
+		})
 	}()
 }
 

@@ -341,3 +341,102 @@ func TestResolveChordCtrlQCtrlM(t *testing.T) {
 		t.Fatalf("expected %s, got %s", CmdCalculator, cmd)
 	}
 }
+
+func TestResolveChordCtrlKCtrlR(t *testing.T) {
+	r := NewResolver()
+	cmd, pending, err := r.Resolve("K")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cmd != CmdPrefixK || !pending {
+		t.Fatalf("Ctrl+K prefix should remain pending")
+	}
+
+	cmd, pending, err = r.Resolve("R")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if pending {
+		t.Fatalf("did not expect pending=true")
+	}
+	if cmd != CmdIncludeFile {
+		t.Fatalf("expected %s, got %s", CmdIncludeFile, cmd)
+	}
+}
+
+func TestResolveChordCtrlPCtrlB(t *testing.T) {
+	r := NewResolver()
+	cmd, pending, err := r.Resolve("P")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cmd != CmdPrefixP || !pending {
+		t.Fatalf("Ctrl+P prefix should remain pending")
+	}
+
+	cmd, pending, err = r.Resolve("B")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if pending {
+		t.Fatalf("did not expect pending=true")
+	}
+	if cmd != CmdStyleBold {
+		t.Fatalf("expected %s, got %s", CmdStyleBold, cmd)
+	}
+}
+
+func TestResolveChordCtrlPCtrlEqual(t *testing.T) {
+	r := NewResolver()
+	cmd, pending, err := r.Resolve("P")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cmd != CmdPrefixP || !pending {
+		t.Fatalf("Ctrl+P prefix should remain pending")
+	}
+
+	cmd, pending, err = r.Resolve("=")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if pending {
+		t.Fatalf("did not expect pending=true")
+	}
+	if cmd != CmdStyleFont {
+		t.Fatalf("expected %s, got %s", CmdStyleFont, cmd)
+	}
+}
+
+func TestResolveChordCtrlKConvertCase(t *testing.T) {
+	tests := []struct {
+		second string
+		want   Command
+	}{
+		{"\"", CmdConvertUppercase},
+		{"'", CmdConvertLowercase},
+		{".", CmdConvertCapitalize},
+	}
+
+	for _, tt := range tests {
+		r := NewResolver()
+		cmd, pending, err := r.Resolve("K")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cmd != CmdPrefixK || !pending {
+			t.Fatalf("Ctrl+K prefix should remain pending")
+		}
+
+		cmd, pending, err = r.Resolve(tt.second)
+		if err != nil {
+			t.Fatalf("unexpected error for %q: %v", tt.second, err)
+		}
+		if pending {
+			t.Fatalf("did not expect pending=true for %q", tt.second)
+		}
+		if cmd != tt.want {
+			t.Fatalf("for %q expected %s, got %s", tt.second, tt.want, cmd)
+		}
+	}
+}
