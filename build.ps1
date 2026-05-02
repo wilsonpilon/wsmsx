@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
+    [Alias("OutputName")]
     [string]$Output = "ws7.exe",
+    [string]$OutputDir,
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Debug",
     [switch]$Clean,
@@ -61,16 +63,51 @@ try {
     }
 
     $targetPackage = "./cmd/ws7"
-    $outputPath = [System.IO.Path]::GetFullPath((Join-Path $scriptRoot $Output))
+
+    $rawOutput = if ([string]::IsNullOrWhiteSpace($Output)) { "ws7.exe" } else { $Output.Trim() }
+    $hasOutputDir = -not [string]::IsNullOrWhiteSpace($OutputDir)
+
+    if ($hasOutputDir) {
+        $rawOutputName = [System.IO.Path]::GetFileName($rawOutput)
+        if ([string]::IsNullOrWhiteSpace($rawOutputName) -or $rawOutputName -ne $rawOutput) {
+            throw "When -OutputDir is used, -Output must be a file name only (example: -Output ws7.exe -OutputDir .\\bin)."
+        }
+
+        $resolvedOutputDir = [System.IO.Path]::GetFullPath((Join-Path $scriptRoot $OutputDir.Trim()))
+        $outputPath = Join-Path $resolvedOutputDir $rawOutputName
+        Write-Host "Output path resolved from file '$rawOutputName' + directory '$resolvedOutputDir'."
+    }
+    else {
+        $candidateOutputPath = [System.IO.Path]::GetFullPath((Join-Path $scriptRoot $rawOutput))
+        $looksLikeDirectoryInput = $rawOutput -eq "." -or $rawOutput -eq ".." -or $rawOutput.EndsWith("\") -or $rawOutput.EndsWith("/")
+        $candidateIsDirectory = (Test-Path -LiteralPath $candidateOutputPath -PathType Container)
+
+        if ($looksLikeDirectoryInput -or $candidateIsDirectory -or $candidateOutputPath -eq $scriptRoot) {
+            $outputPath = Join-Path $candidateOutputPath "ws7.exe"
+            Write-Host "Output path resolved to directory '$candidateOutputPath'; using '$outputPath'."
+        }
+        else {
+            $outputPath = $candidateOutputPath
+        }
+    }
+
+    if (Test-Path -LiteralPath $outputPath -PathType Container) {
+        throw "Output path '$outputPath' resolves to a directory. Provide a file name, e.g. -Output ws7.exe or -Output .\\bin\\ws7.exe"
+    }
+
     $outputDir = Split-Path -Parent $outputPath
     if (-not [string]::IsNullOrWhiteSpace($outputDir)) {
         New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
     }
 
     $doCleanBuild = $Clean -or (-not $Incremental)
-    if ($doCleanBuild -and (Test-Path $outputPath)) {
+    if ($doCleanBuild -and (Test-Path -LiteralPath $outputPath)) {
         try {
-            Remove-Item -Force $outputPath
+            $existingArtifact = Get-Item -LiteralPath $outputPath -Force
+            if ($existingArtifact.PSIsContainer) {
+                throw "Refusing to remove directory '$outputPath'."
+            }
+            Remove-Item -LiteralPath $outputPath -Force
             Write-Host "Removed previous artifact: $outputPath"
         }
         catch {
@@ -150,4 +187,3 @@ try {
 finally {
     Pop-Location
 }
-

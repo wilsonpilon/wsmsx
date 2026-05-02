@@ -86,18 +86,18 @@ Stack confirmada:
     - `Ctrl+O,L` = Document Beginning
 14. Limpeza editorial da documentacao `.md` para refletir o comportamento atual da regua.
 15. Implementacao da calculadora em `Utilities` (`Ctrl+Q,M`) com parser/avaliador dedicado.
-16. **[0.1.9]** Sistema de selecao de fonte com `Style > Font... (Ctrl+P,=)`:
+16. **[0.2.1]** Sistema de selecao de fonte com `Style > Font... (Ctrl+P,=)`:
     - Suporte a familias bundled (Source Code Pro, MSX Screen).
     - Selecao de tamanho (8..48pt), peso e estilo (itálico).
     - Persistência de preferências (setting keys).
-17. **[0.1.9]** Implementacao de `Style > Bold (Ctrl+P,B)` com toggle por aba.
+17. **[0.2.1]** Implementacao de `Style > Bold (Ctrl+P,B)` com toggle por aba.
     - Regua de linhas, regua flutuante e floating ruler adaptam a novas metricas de fonte.
-18. **[0.1.9]** Melhorias na tela `Configure`:
+18. **[0.2.1]** Melhorias na tela `Configure`:
     - Seletor de diretorio por ferramenta com botao `Browse...`.
     - Auto-deteccao de executavel/script dentro de pasta escolhida.
     - Botao `Test` por ferramenta: executa probe leve (--help/--version/--check).
     - Validacao pre-salva com feedback detalhado.
-19. **[0.1.9]** Implementacao de consumo real de paths de ferramentas:
+19. **[0.2.1]** Implementacao de consumo real de paths de ferramentas:
     - Aceita arquivo direto ou folder com autodeteccao.
     - Rotinas de lancamento: `openMSX` (detached), `msxbas2rom`, `BASIC Dignified`, `MSX Encoding`.
     - Suporte a diferentes runners: executaveis, Python, Node.js, npm.

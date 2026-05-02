@@ -33,6 +33,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"ws7/internal/basic/calc"
+	"ws7/internal/basic/msxtoken"
 	"ws7/internal/basic/renum"
 	"ws7/internal/config"
 	"ws7/internal/input"
@@ -50,6 +51,7 @@ const settingEditorFontFamilyKey = "editor_font_family"
 const settingEditorFontWeightKey = "editor_font_weight"
 const settingEditorFontSizeKey = "editor_font_size"
 const settingEditorFontItalicKey = "editor_font_italic"
+const settingEditorSaveTokenizedKey = "editor_save_tokenized"
 const settingWS7BaseDirKey = "tool_ws7_base_dir"
 const settingOpenMSXExeKey = "tool_openmsx_exe"
 const settingOpenMSXMachineKey = "tool_openmsx_machine"
@@ -177,6 +179,8 @@ type editorUI struct {
 	editorFontWeight string
 	editorFontSize   float32
 	editorFontItalic bool
+	saveTokenized    bool
+	styleTokenItem   *fyne.MenuItem
 
 	internalBlockClipboard string
 	calculatorLastResult   string
@@ -241,6 +245,9 @@ func Run() error {
 	}
 	if savedItalic, _ := store.GetSetting(context.Background(), settingEditorFontItalicKey); strings.EqualFold(strings.TrimSpace(savedItalic), "true") {
 		ui.editorFontItalic = true
+	}
+	if savedTokenized, _ := store.GetSetting(context.Background(), settingEditorSaveTokenizedKey); strings.EqualFold(strings.TrimSpace(savedTokenized), "true") {
+		ui.saveTokenized = true
 	}
 	if !editorFontFamilySupportsItalic(ui.editorFontFamily) {
 		ui.editorFontItalic = false
@@ -509,6 +516,31 @@ func normalizeMSXSourceFileName(name string) string {
 
 func suggestMSXSourceFileName(filePath, fallback string) string {
 	return normalizeMSXSourceFileName(displayDocumentName(filePath, fallback))
+}
+
+func suggestMSXSaveFileName(filePath, fallback string, tokenized bool) string {
+	name := strings.TrimSpace(displayDocumentName(filePath, fallback))
+	if name == "" || name == "[New]" {
+		if tokenized {
+			return "untitled.bas"
+		}
+		return "untitled" + defaultMSXBasicASCIIExt
+	}
+	if tokenized {
+		ext := strings.ToLower(filepath.Ext(name))
+		if ext == ".bas" {
+			return name
+		}
+		base := strings.TrimSuffix(name, filepath.Ext(name))
+		if base == "" {
+			base = "untitled"
+		}
+		return base + ".bas"
+	}
+	if ext := strings.ToLower(filepath.Ext(name)); ext != "" {
+		return name
+	}
+	return name + defaultMSXBasicASCIIExt
 }
 
 func (e *editorUI) tabEditorContent(tab *editorTab) fyne.CanvasObject {
@@ -1479,9 +1511,13 @@ func (e *editorUI) makeEditorMenu() *fyne.MainMenu {
 		fyne.NewMenuItem("Lowercase                Ctrl+K,'", func() { e.execute(input.CmdConvertLowercase) }),
 		fyne.NewMenuItem("Capitalize               Ctrl+K,.", func() { e.execute(input.CmdConvertCapitalize) }),
 	)
+	tokenizedItem := fyne.NewMenuItem("Tokenized", func() { e.cmdToggleTokenizedSave() })
+	tokenizedItem.Checked = e.saveTokenized
+	e.styleTokenItem = tokenizedItem
 	styleMenu := fyne.NewMenu("Style",
 		fyne.NewMenuItem("Bold                     Ctrl+P,B", func() { e.execute(input.CmdStyleBold) }),
 		fyne.NewMenuItem("Font...                  Ctrl+P,=", func() { e.execute(input.CmdStyleFont) }),
+		tokenizedItem,
 		convertCaseItem,
 	)
 	utilitiesMenu := fyne.NewMenu("Utilities",
@@ -1553,6 +1589,26 @@ func (e *editorUI) cmdRule() {
 			e.status.SetText("RULE: on (ESC to exit)")
 		} else {
 			e.status.SetText("RULE: off")
+		}
+	}
+}
+
+func (e *editorUI) cmdToggleTokenizedSave() {
+	e.saveTokenized = !e.saveTokenized
+	if e.styleTokenItem != nil {
+		e.styleTokenItem.Checked = e.saveTokenized
+	}
+	if e.store != nil {
+		_ = e.store.SetSetting(context.Background(), settingEditorSaveTokenizedKey, strconv.FormatBool(e.saveTokenized))
+	}
+	if e.window != nil && e.window.MainMenu() != nil {
+		e.window.MainMenu().Refresh()
+	}
+	if e.status != nil {
+		if e.saveTokenized {
+			e.status.SetText("Tokenized save: on")
+		} else {
+			e.status.SetText("Tokenized save: off")
 		}
 	}
 }
@@ -2406,7 +2462,12 @@ func (e *editorUI) saveWithPrompt(onDone func(error)) {
 		e.saveAsDialog(onDone)
 		return
 	}
-	if err := os.WriteFile(e.filePath, []byte(e.entry.Text), 0o644); err != nil {
+	payload, err := e.savePayload()
+	if err != nil {
+		onDone(err)
+		return
+	}
+	if err := os.WriteFile(e.filePath, payload, 0o644); err != nil {
 		onDone(err)
 		return
 	}
@@ -2421,6 +2482,23 @@ func (e *editorUI) saveWithPrompt(onDone func(error)) {
 	onDone(nil)
 }
 
+func (e *editorUI) savePayload() ([]byte, error) {
+	if !e.saveTokenized {
+		return []byte(normalizeDOSLineEndings(e.entry.Text)), nil
+	}
+	return msxtoken.TokenizeProgram(e.entry.Text)
+}
+
+func normalizeDOSLineEndings(text string) string {
+	normalized := strings.ReplaceAll(text, "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	return strings.ReplaceAll(normalized, "\n", "\r\n")
+}
+
+func writeNormalizedASCII(writer io.Writer, content string) (int, error) {
+	return writer.Write([]byte(normalizeDOSLineEndings(content)))
+}
+
 func (e *editorUI) saveAsDialog(onDone func(error)) {
 	d := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
 		if err != nil {
@@ -2432,7 +2510,13 @@ func (e *editorUI) saveAsDialog(onDone func(error)) {
 			return
 		}
 		e.filePath = writer.URI().Path()
-		_, wErr := writer.Write([]byte(e.entry.Text))
+		payload, pErr := e.savePayload()
+		if pErr != nil {
+			_ = writer.Close()
+			onDone(pErr)
+			return
+		}
+		_, wErr := writer.Write(payload)
 		cErr := writer.Close()
 		if wErr != nil {
 			onDone(wErr)
@@ -2459,7 +2543,7 @@ func (e *editorUI) saveAsDialog(onDone func(error)) {
 	if e.activeTab != nil {
 		fallbackName = e.activeTab.name
 	}
-	d.SetFileName(suggestMSXSourceFileName(e.filePath, fallbackName))
+	d.SetFileName(suggestMSXSaveFileName(e.filePath, fallbackName, e.saveTokenized))
 
 	lastDir, _ := e.store.GetSetting(context.Background(), "last_dir")
 	if lastDir != "" {
@@ -2482,7 +2566,7 @@ func (e *editorUI) copyAsDialog(sourcePath, content string) {
 		if writer == nil {
 			return
 		}
-		_, wErr := writer.Write([]byte(content))
+		_, wErr := writeNormalizedASCII(writer, content)
 		cErr := writer.Close()
 		if wErr != nil {
 			dialog.ShowError(wErr, e.window)

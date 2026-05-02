@@ -183,7 +183,7 @@ func TestEditorStyleMenuContainsExpectedItems(t *testing.T) {
 	if style == nil || style.Label != "Style" {
 		t.Fatalf("expected Style menu at top-level index 3")
 	}
-	if len(style.Items) < 3 {
+	if len(style.Items) < 4 {
 		t.Fatalf("expected Style menu items")
 	}
 	if got := style.Items[0].Label; got != "Bold                     Ctrl+P,B" {
@@ -192,8 +192,35 @@ func TestEditorStyleMenuContainsExpectedItems(t *testing.T) {
 	if got := style.Items[1].Label; got != "Font...                  Ctrl+P,=" {
 		t.Fatalf("second Style item = %q, want Font", got)
 	}
-	if got := style.Items[2].Label; got != "Convert Case" {
-		t.Fatalf("third Style item = %q, want Convert Case", got)
+	if got := style.Items[2].Label; got != "Tokenized" {
+		t.Fatalf("third Style item = %q, want Tokenized", got)
+	}
+	if got := style.Items[3].Label; got != "Convert Case" {
+		t.Fatalf("fourth Style item = %q, want Convert Case", got)
+	}
+}
+
+func TestSuggestMSXSaveFileNameUsesBASWhenTokenized(t *testing.T) {
+	if got := suggestMSXSaveFileName("", "", true); got != "untitled.bas" {
+		t.Fatalf("suggested = %q, want untitled.bas", got)
+	}
+	if got := suggestMSXSaveFileName("", "demo", true); got != "demo.bas" {
+		t.Fatalf("suggested = %q, want demo.bas", got)
+	}
+	if got := suggestMSXSaveFileName("", "demo.asc", true); got != "demo.bas" {
+		t.Fatalf("suggested = %q, want demo.bas", got)
+	}
+}
+
+func TestEditorStyleMenuTokenizedItemCheckedWhenEnabled(t *testing.T) {
+	ui := &editorUI{saveTokenized: true}
+	menu := ui.makeEditorMenu()
+	style := menu.Items[3]
+	if len(style.Items) < 3 {
+		t.Fatalf("expected Style menu items")
+	}
+	if !style.Items[2].Checked {
+		t.Fatal("expected Tokenized menu item to be checked")
 	}
 }
 

@@ -10,16 +10,39 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Added `Utilities > Word Count` command to display text statistics (words and byte count).
-  - Future enhancement: tokenized byte count for MSX BASIC format.
+- (none yet)
 
 ### Changed
 
-- Updated documentation (`README.md` and `MANUAL.md`) with `build.ps1` examples for `-NoConsole` and `-Console`, including the note that these overrides cannot be used together.
+- (none yet)
 
 ### Fixed
 
-- Fixed top ruler alignment so it starts at text column 1 (after the line-number gutter) instead of the far-left editor edge.
+- (none yet)
+
+## [0.2.1] - 2026-05-02
+
+### Added
+
+- Added native MSX-BASIC tokenization in Go (`internal/basic/msxtoken`) based on the Basic Dignified `msxbatoken` approach.
+- Added `Style -> Tokenized` toggle to control whether `Save`/`Save As` writes plain ASCII or tokenized output.
+- Added golden parity tests comparing Go tokenization output against Python `msxbatoken` fixtures, with strict/debug diff helpers.
+- Added DOS line-ending normalization tests for save and copy/export write paths.
+
+### Changed
+
+- `Save As` now prefers `.bas` naming when tokenized mode is active.
+- Non-tokenized save/copy-export flows now normalize text to DOS/Windows line endings (`CRLF`) for MSX-DOS compatibility.
+- Build script (`build.ps1`) output handling is safer and clearer:
+  - supports explicit `-OutputDir` folder parameter;
+  - supports semantic alias `-OutputName` for output file name;
+  - resolves directory-style output input to a safe artifact file path.
+- Updated documentation (`README.md`, `OUTLINE.md`, `MANUAL.md`) to version `0.2.1` and added tokenizer attribution to Fred Rique / Basic Dignified.
+
+### Fixed
+
+- Prevented accidental artifact cleanup attempts against directories (for example workspace root) during clean builds.
+- Avoided failures when `build.ps1` receives directory-like output arguments (for example `-Output .`).
 
 ## [0.1.9] - 2026-05-01
 

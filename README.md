@@ -21,12 +21,13 @@ Text editor in Go + Fyne, inspired by the WordStar 7.0 workflow, focused on MSX-
 - **Go**: main application language.
 - **Fyne**: desktop GUI framework.
 - **SQLite**: local settings and history storage.
+- **MSX tokenizer base**: adapted from Fred Rique's Basic Dignified tooling (`msxbatoken`) - https://github.com/farique1/basic-dignified
 - **PowerShell** (`build.ps1`): Windows build automation.
 - **Go test / go build**: continuous validation of changes.
 
 ## Recent Changes
 
-- **Current release is `0.1.9`** with major improvements to editor styling and tool integration.
+- **Current release is `0.2.1`** with major improvements to editor styling and tool integration.
 - **Style > Font... (Ctrl+P,=)**: Configure bundled monospace fonts with family/size/weight/italic selection.
   - Supports Source Code Pro variants (ExtraLight, Light, Regular, Medium, SemiBold, Bold, ExtraBold, Black).
   - MSX Screen 0/1 fonts available.
@@ -78,7 +79,7 @@ build.ps1                        Windows build
 
 ## Versioning and Releases
 
-- Current app version is `0.1.9`.
+- Current app version is `0.2.1`.
 - Bump version in `internal/version/version.go` before each release.
 - Register new work under `## [Unreleased]` in `CHANGELOG.md`, then cut a dated version section.
 
