@@ -205,6 +205,30 @@ func TestEditorRunMenuContainsExpectedItems(t *testing.T) {
 	}
 }
 
+func TestEditorHelpMenuContainsMarkdownItems(t *testing.T) {
+	ui := &editorUI{}
+	menu := ui.makeEditorMenu()
+	if menu == nil || len(menu.Items) < 7 {
+		t.Fatalf("expected editor main menu with HELP")
+	}
+	help := menu.Items[6]
+	if help == nil || help.Label != "HELP" {
+		t.Fatalf("expected HELP menu at top-level index 6")
+	}
+	if len(help.Items) < 5 {
+		t.Fatalf("expected HELP menu with markdown items")
+	}
+	if got := help.Items[1].Label; got != "MANUAL" {
+		t.Fatalf("help item[1] = %q, want MANUAL", got)
+	}
+	if got := help.Items[2].Label; got != "README" {
+		t.Fatalf("help item[2] = %q, want README", got)
+	}
+	if got := help.Items[3].Label; got != "KEYBIND" {
+		t.Fatalf("help item[3] = %q, want KEYBIND", got)
+	}
+}
+
 func TestOpeningMenuPlaceholderItemsShowNI(t *testing.T) {
 	ui := &editorUI{}
 	menu := ui.makeOpeningMenu()
@@ -232,12 +256,36 @@ func TestOpeningMenuPlaceholderItemsShowNI(t *testing.T) {
 	if got := macros.ChildMenu.Items[0].Label; got != "Play... [NI]               MP" {
 		t.Fatalf("macros first item = %q, want Play... [NI]               MP", got)
 	}
+	if got := utilities.Items[len(utilities.Items)-1].Label; got != "Keybinds..." {
+		t.Fatalf("last Utilities item = %q, want Keybinds...", got)
+	}
 	additional := menu.Items[2]
 	if additional == nil || additional.Label != "Additional" {
 		t.Fatalf("expected Additional menu at top-level index 2")
 	}
 	if got := additional.Items[0].Label; got != "Character Editor... [NI]   AC" {
 		t.Fatalf("additional first item = %q, want Character Editor... [NI]   AC", got)
+	}
+}
+
+func TestEditorUtilitiesMenuContainsKeybindsAfterConfigure(t *testing.T) {
+	ui := &editorUI{}
+	menu := ui.makeEditorMenu()
+	if menu == nil || len(menu.Items) < 6 {
+		t.Fatalf("expected editor main menu with Utilities")
+	}
+	utilities := menu.Items[5]
+	if utilities == nil || utilities.Label != "Utilities" {
+		t.Fatalf("expected Utilities menu at top-level index 5")
+	}
+	if len(utilities.Items) < 1 {
+		t.Fatal("expected Utilities to include keybinds item")
+	}
+	if got := utilities.Items[len(utilities.Items)-1].Label; got != "Keybinds..." {
+		t.Fatalf("last Utilities item = %q, want Keybinds...", got)
+	}
+	if got := utilities.Items[len(utilities.Items)-2].Label; got != "Configure..." {
+		t.Fatalf("item before Keybinds = %q, want Configure...", got)
 	}
 }
 

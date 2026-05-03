@@ -71,6 +71,15 @@ func (s *Store) migrate(ctx context.Context) error {
 			updated_at TEXT NOT NULL,
 			UNIQUE(file_name, file_path, content_sha1)
 		);`,
+		`CREATE TABLE IF NOT EXISTS keybinds (
+			command_id TEXT PRIMARY KEY,
+			label TEXT NOT NULL,
+			shortcut TEXT NOT NULL,
+			context TEXT NOT NULL,
+			implemented INTEGER NOT NULL DEFAULT 1,
+			configurable INTEGER NOT NULL DEFAULT 1,
+			updated_at TEXT NOT NULL
+		);`,
 	}
 
 	for _, stmt := range stmts {

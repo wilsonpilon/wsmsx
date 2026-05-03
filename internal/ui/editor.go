@@ -193,6 +193,7 @@ type editorUI struct {
 	calculatorLastResult   string
 	calculatorLastValue    float64
 	calculatorHasLastValue bool
+	keybindCatalog         []sqlite.KeybindRecord
 }
 
 func Run() error {
@@ -228,6 +229,14 @@ func Run() error {
 		editorFontWeight: defaultEditorFontWeight,
 		editorFontSize:   defaultEditorFontSize,
 	}
+	ui.keybindCatalog = defaultKeybindRecords()
+	if ui.store != nil {
+		_ = ui.store.SeedKeybinds(context.Background(), ui.keybindCatalog)
+		if persisted, loadErr := ui.store.ListKeybinds(context.Background()); loadErr == nil && len(persisted) > 0 {
+			ui.keybindCatalog = persisted
+		}
+	}
+	ui.applyKeybindResolverMappings()
 	ui.window.SetCloseIntercept(func() {
 		if ui.allowWindowClose {
 			ui.window.SetCloseIntercept(nil)
@@ -1148,6 +1157,10 @@ func (e *editorUI) handleCtrl(letter string) {
 
 // showCompletedChordStatus sets a brief status message for a completed chord.
 func (e *editorUI) showCompletedChordStatus(cmd input.Command, prevPrefix, letter string) {
+	if mapped := strings.TrimSpace(e.shortcutLabelForCommand(cmd)); mapped != "" {
+		e.status.SetText(mapped + " ✓")
+		return
+	}
 	if label, ok := cmdChordLabel[cmd]; ok {
 		e.status.SetText(label + " ✓")
 		return
@@ -1551,6 +1564,7 @@ func (e *editorUI) makeOpeningMenu() *fyne.MainMenu {
 		macrosItem,
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Configure...", func() { e.cmdConfigure() }),
+		fyne.NewMenuItem("Keybinds...", func() { e.cmdKeybinds() }),
 	)
 
 	additionalMenu := fyne.NewMenu("Additional",
@@ -1614,6 +1628,7 @@ func (e *editorUI) makeEditorMenu() *fyne.MainMenu {
 		fyne.NewMenuItem("Run MSX Encoding", func() { e.cmdLaunchMSXEncoding() }),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Configure...", func() { e.cmdConfigure() }),
+		fyne.NewMenuItem("Keybinds...", func() { e.cmdKeybinds() }),
 	)
 
 	openMSXHelpItem := fyne.NewMenuItem("openMSX", nil)
@@ -1632,6 +1647,9 @@ func (e *editorUI) makeEditorMenu() *fyne.MainMenu {
 
 	helpMenu := fyne.NewMenu("HELP",
 		fyne.NewMenuItem("ABOUT", func() { e.cmdAboutWS7() }),
+		fyne.NewMenuItem("MANUAL", func() { e.cmdOpenHelpManual() }),
+		fyne.NewMenuItem("README", func() { e.cmdOpenHelpReadme() }),
+		fyne.NewMenuItem("KEYBIND", func() { e.cmdOpenHelpKeybind() }),
 		openMSXHelpItem,
 	)
 
@@ -2007,6 +2025,10 @@ func (e *editorUI) cmdOpenHelpManual() {
 
 func (e *editorUI) cmdOpenHelpOutline() {
 	e.openMarkdownHelpDoc("OUTLINE.md", "OUTLINE")
+}
+
+func (e *editorUI) cmdOpenHelpKeybind() {
+	e.openMarkdownHelpDoc("REFERENCE.md", "KEYBIND")
 }
 
 func (e *editorUI) applyCurrentEditorTheme() {

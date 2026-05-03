@@ -6,7 +6,7 @@ Este arquivo e o guia rapido para retomar o desenvolvimento do WS7 em outro ambi
 
 ## 1) Estado atual (snapshot)
 
-- Versao atual: `0.2.5`
+- Versao atual: `0.2.7`
 - Branch de trabalho: `main` (validar no Git antes de continuar)
 - Workspace atual de referencia: `E:\wsmsx`
 - Stack:
@@ -34,7 +34,7 @@ Este arquivo e o guia rapido para retomar o desenvolvimento do WS7 em outro ambi
 - Versao da app: `internal/version/version.go`
 - Docs de produto: `README.md`, `MANUAL.md`, `CHANGELOG.md`
 
-## 4) Entregas recentes importantes (ate 0.2.5)
+## 4) Entregas recentes importantes (ate 0.2.7)
 
 1. Syntax highlighting MSX-BASIC expandido por categorias:
    - instruction, jump, function, operator, number, string, comment, identifier.
@@ -51,6 +51,15 @@ Este arquivo e o guia rapido para retomar o desenvolvimento do WS7 em outro ambi
    - acao de copiar hex por icone + tooltip curto.
 7. Correcao de duplicacao visual de texto no editor:
    - camada base do `Entry` permanece transparente sob o overlay.
+8. Gestao de keybinds em `Utilities > Keybinds...`:
+   - tabela com filtros (`Context`, `Implemented`, `Configurable`);
+   - edicao de atalhos configuraveis com deteccao de conflito;
+   - exportacao JSON e importacao JSON com preview antes de aplicar.
+9. Importacao de keybinds aceita formatos:
+   - array `[...]`;
+   - wrappers `{ "keybinds": [...] }`, `{ "bindings": [...] }`, `{ "items": [...] }`.
+10. Menu `HELP` do editor principal expandido:
+    - `MANUAL` (`MANUAL.md`), `README` (`README.md`), `KEYBIND` (`REFERENCE.md`).
 
 ## 5) Regras de decisao para continuar
 
@@ -110,7 +119,7 @@ Use este prompt no inicio da sessao:
 ```text
 Contexto: Projeto WS7 (Go + Fyne), editor estilo WordStar para MSX-BASIC.
 Workspace atual: E:\wsmsx.
-Versao alvo atual: 0.2.5.
+Versao alvo atual: 0.2.7.
 
 Antes de qualquer mudanca:
 1) Leia OUTLINE.md, README.md, MANUAL.md e CHANGELOG.md.

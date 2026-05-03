@@ -2,7 +2,7 @@
 
 Usage guide for the WS7 editor (Go + Fyne), with commands inspired by WordStar.
 
-Current documented version: `0.2.5`.
+Current documented version: `0.2.7`.
 
 ## 1) How to Start the Program
 
@@ -73,6 +73,7 @@ When you enter the editor, the top menu changes to:
 - `Insert`
 - `Style`
 - `Utilities`
+- `HELP`
 
 Current editor features:
 
@@ -124,6 +125,18 @@ Current editor features:
 - `Utilities > Run msxbas2rom`: Convert MSX BASIC files.
 - `Utilities > Run BASIC Dignified`: Transpile BASIC Dignified syntax.
 - `Utilities > Run MSX Encoding`: Handle MSX text encoding.
+- `Utilities > Keybinds...` opens keybind management:
+  - filter by `Context`, `Implemented`, and `Configurable`;
+  - edit shortcuts for configurable commands;
+  - conflict detection before saving;
+  - `Export current keybinds (JSON)`;
+  - `Import keybinds (JSON)` with preview before apply.
+- `HELP` menu inside editor:
+  - `ABOUT`
+  - `MANUAL` (opens `MANUAL.md`)
+  - `README` (opens `README.md`)
+  - `KEYBIND` (opens `REFERENCE.md`)
+  - `openMSX` online/offline help submenu.
 - Tab close confirmation when unsaved changes exist.
 - Global exit confirmation now checks all open tabs for unsaved changes before closing the app.
 - Dirty tab indicator with `*` and warning icon.

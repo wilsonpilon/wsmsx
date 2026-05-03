@@ -20,6 +20,31 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 - (none yet)
 
+## [0.2.7] - 2026-05-03
+
+### Added
+
+- Added `Utilities > Keybinds...` management dialog in a filterable table format:
+  - filters by `Context`, `Implemented`, and `Configurable`;
+  - editable shortcuts for configurable commands.
+- Added keybind JSON import with preview before apply.
+- Added support for JSON wrapper aliases during import:
+  - top-level array `[...]`;
+  - object wrappers `{ "keybinds": [...] }`, `{ "bindings": [...] }`, `{ "items": [...] }`.
+- Added editor `HELP` menu entries for Markdown docs:
+  - `MANUAL` (`MANUAL.md`)
+  - `README` (`README.md`)
+  - `KEYBIND` (`REFERENCE.md`)
+
+### Changed
+
+- Bumped app version to `0.2.7` in `internal/version/version.go`.
+- Updated documentation (`README.md`, `OUTLINE.md`, `MANUAL.md`) to `0.2.7`.
+
+### Fixed
+
+- Strengthened keybind import validation to block shortcut conflicts before apply.
+
 ## [0.2.5] - 2026-05-03
 
 ### Added
@@ -224,8 +249,8 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 To bump the version, edit `internal/version/version.go`:
 
 ```go
-const Version = "0.2.5"  // example patch bump
+const Version = "0.2.7"  // example patch bump
 ```
 
-Then add a new entry at the top of this file under `## [0.2.5] - YYYY-MM-DD`.
+Then add a new entry at the top of this file under `## [0.2.7] - YYYY-MM-DD`.
 

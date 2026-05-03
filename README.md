@@ -27,7 +27,16 @@ Text editor in Go + Fyne, inspired by the WordStar 7.0 workflow, focused on MSX-
 
 ## Recent Changes
 
-- **Current release is `0.2.5`** with major improvements to syntax highlight preview and theme customization.
+- **Current release is `0.2.7`** with keybind management and editor help improvements.
+- **Utilities > Keybinds...**:
+  - Filterable keybind table by `Context`, `Implemented`, and `Configurable`.
+  - Editable shortcuts for configurable commands with conflict detection.
+  - JSON export and JSON import with preview before apply.
+  - Import accepts `[]`, `{ "keybinds": [...] }`, `{ "bindings": [...] }`, and `{ "items": [...] }`.
+- **Editor HELP menu additions**:
+  - `MANUAL` opens `MANUAL.md`.
+  - `README` opens `README.md`.
+  - `KEYBIND` opens `REFERENCE.md`.
 - **Inline syntax highlight preview (live)**:
   - The editor now renders colorized syntax directly in the editing area through an overlay, while keeping normal text editing behavior.
   - MSX-BASIC highlighting differentiates instructions, jump commands, functions, operators, numbers, strings, comments, and identifiers.
@@ -86,7 +95,7 @@ build.ps1                        Windows build
 
 ## Versioning and Releases
 
-- Current app version is `0.2.5`.
+- Current app version is `0.2.7`.
 - Bump version in `internal/version/version.go` before each release.
 - Register new work under `## [Unreleased]` in `CHANGELOG.md`, then cut a dated version section.
 

@@ -76,3 +76,67 @@ func TestProgramSnapshotUpsertAndGetLatest(t *testing.T) {
 		t.Fatalf("latest renum defaults mismatch: %+v", got)
 	}
 }
+
+func TestSeedAndListKeybinds(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	store, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite: %v", err)
+	}
+	defer func() { _ = store.Close() }()
+
+	ctx := context.Background()
+	seed := []KeybindRecord{
+		{CommandID: "save", Label: "Save", Shortcut: "Ctrl+K,S", Context: "editor", Implemented: true, Configurable: true},
+		{CommandID: "print", Label: "Print", Shortcut: "Ctrl+K,P", Context: "editor", Implemented: false, Configurable: true},
+	}
+	if err := store.SeedKeybinds(ctx, seed); err != nil {
+		t.Fatalf("failed to seed keybinds: %v", err)
+	}
+	if err := store.SeedKeybinds(ctx, seed); err != nil {
+		t.Fatalf("failed to seed keybinds on second pass: %v", err)
+	}
+
+	got, err := store.ListKeybinds(ctx)
+	if err != nil {
+		t.Fatalf("failed to list keybinds: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 keybinds, got %d", len(got))
+	}
+
+	foundPrint := false
+	for _, item := range got {
+		if item.CommandID != "print" {
+			continue
+		}
+		foundPrint = true
+		if item.Implemented {
+			t.Fatal("expected print binding to be marked as not implemented")
+		}
+	}
+	if !foundPrint {
+		t.Fatal("expected to find print keybind record")
+	}
+
+	if err := store.UpsertKeybind(ctx, KeybindRecord{
+		CommandID:    "print",
+		Label:        "Print",
+		Shortcut:     "Ctrl+K,X",
+		Context:      "editor",
+		Implemented:  false,
+		Configurable: true,
+	}); err != nil {
+		t.Fatalf("failed to upsert keybind: %v", err)
+	}
+
+	updated, err := store.ListKeybinds(ctx)
+	if err != nil {
+		t.Fatalf("failed to list updated keybinds: %v", err)
+	}
+	for _, item := range updated {
+		if item.CommandID == "print" && item.Shortcut != "Ctrl+K,X" {
+			t.Fatalf("print shortcut = %q, want Ctrl+K,X", item.Shortcut)
+		}
+	}
+}

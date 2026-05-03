@@ -133,10 +133,83 @@ func IsGoToMarker(cmd Command) (string, bool) {
 // ─── Resolver ────────────────────────────────────────────────────────────────
 
 // Resolver keeps WordStar-style multi-key Ctrl chord state.
-type Resolver struct{ prefix string }
+type Resolver struct {
+	prefix         string
+	commandByChord map[string]Command
+	chordByCommand map[Command]string
+}
 
 // NewResolver creates a fresh Resolver.
-func NewResolver() *Resolver { return &Resolver{} }
+func NewResolver() *Resolver {
+	r := &Resolver{}
+	_ = r.ApplyKeybinds(DefaultKeybindDefinitions())
+	return r
+}
+
+// ApplyKeybinds updates resolver mappings using the provided command catalog.
+func (r *Resolver) ApplyKeybinds(defs []KeybindDefinition) error {
+	r.commandByChord = map[string]Command{}
+	r.chordByCommand = map[Command]string{}
+	for _, def := range defs {
+		id := strings.TrimSpace(def.ID)
+		shortcut := strings.TrimSpace(def.Shortcut)
+		if id == "" || shortcut == "" {
+			continue
+		}
+		if id == "set_marker_digit" || id == "go_to_marker_digit" {
+			continue
+		}
+		if _, err := NormalizeShortcut(shortcut); err != nil {
+			continue
+		}
+		keys, err := ShortcutToResolverChord(shortcut)
+		if err != nil || len(keys) == 0 {
+			continue
+		}
+		chord := strings.Join(keys, ",")
+		cmd := Command(id)
+		if existing, ok := r.commandByChord[chord]; ok && existing != cmd {
+			return fmt.Errorf("shortcut conflict: %s", shortcut)
+		}
+		r.commandByChord[chord] = cmd
+		if _, exists := r.chordByCommand[cmd]; !exists {
+			r.chordByCommand[cmd] = shortcut
+		}
+	}
+	if _, ok := r.commandByChord["K"]; ok {
+		delete(r.commandByChord, "K")
+	}
+	if _, ok := r.commandByChord["O"]; ok {
+		delete(r.commandByChord, "O")
+	}
+	if _, ok := r.commandByChord["P"]; ok {
+		delete(r.commandByChord, "P")
+	}
+	if _, ok := r.commandByChord["Q"]; ok {
+		delete(r.commandByChord, "Q")
+	}
+	if _, ok := r.commandByChord["M"]; ok {
+		delete(r.commandByChord, "M")
+	}
+	if _, ok := r.commandByChord["K,Q"]; ok {
+		delete(r.commandByChord, "K,Q")
+	}
+	if _, ok := r.commandByChord["O,N"]; ok {
+		delete(r.commandByChord, "O,N")
+	}
+	if _, ok := r.commandByChord["Q,N"]; ok {
+		delete(r.commandByChord, "Q,N")
+	}
+	return nil
+}
+
+// ShortcutForCommand returns the currently mapped shortcut label for a command.
+func (r *Resolver) ShortcutForCommand(cmd Command) string {
+	if r == nil {
+		return ""
+	}
+	return strings.TrimSpace(r.chordByCommand[cmd])
+}
 
 // Resolve processes one Ctrl key (letter or symbol, single rune).
 // Returns (Command, pending, error); pending=true means waiting for next key.
@@ -144,243 +217,36 @@ func (r *Resolver) Resolve(ctrlKey string) (Command, bool, error) {
 	if len(ctrlKey) != 1 {
 		return "", false, fmt.Errorf("ctrlKey must contain exactly 1 character")
 	}
-
-	switch r.prefix {
-
-	case "K":
-		r.prefix = ""
-		switch ctrlKey {
-		case "S":
-			return CmdSave, false, nil
-		case "T":
-			return CmdSaveAs, false, nil
-		case "D":
-			return CmdSaveAndClose, false, nil
-		case "P":
-			return CmdPrint, false, nil
-		case "O":
-			return CmdFileCopy, false, nil
-		case "J":
-			return CmdFileDelete, false, nil
-		case "E":
-			return CmdFileRename, false, nil
-		case "L":
-			return CmdChangeDirectory, false, nil
-		case "F":
-			return CmdRunPSCommand, false, nil
-		case "B":
-			return CmdMarkBlockBegin, false, nil
-		case "K":
-			return CmdMarkBlockEnd, false, nil
-		case "V":
-			return CmdMoveBlock, false, nil
-		case "G":
-			return CmdMoveBlockOtherWin, false, nil
-		case "C":
-			return CmdCopyBlock, false, nil
-		case "A":
-			return CmdCopyBlockOtherWin, false, nil
-		case "[":
-			return CmdCopyFromClipboard, false, nil
-		case "]":
-			return CmdCopyToClipboard, false, nil
-		case "W":
-			return CmdCopyToFile, false, nil
-		case "R":
-			return CmdIncludeFile, false, nil
-		case "\"":
-			return CmdConvertUppercase, false, nil
-		case "'":
-			return CmdConvertLowercase, false, nil
-		case ".":
-			return CmdConvertCapitalize, false, nil
-		case "Y":
-			return CmdDeleteBlock, false, nil
-		case "U":
-			return CmdMarkPreviousBlock, false, nil
-		case "N":
-			return CmdColumnBlockMode, false, nil
-		case "I":
-			return CmdColumnReplaceMode, false, nil
-		case "Q":
-			r.prefix = "KQ"
-			return CmdPrefixKQ, true, nil
-		default:
-			if ctrlKey >= "0" && ctrlKey <= "9" {
-				return MarkerSetCmd(ctrlKey), false, nil
-			}
-			return "", false, fmt.Errorf("unsupported sequence Ctrl+K+%s", ctrlKey)
-		}
-
-	case "KQ":
-		r.prefix = ""
-		switch ctrlKey {
-		case "X":
-			return CmdExit, false, nil
-		default:
-			return "", false, fmt.Errorf("unsupported sequence Ctrl+K,Q+%s", ctrlKey)
-		}
-
-	case "O":
-		r.prefix = ""
-		switch ctrlKey {
-		case "K":
-			return CmdOpenSwitch, false, nil
-		case "L":
-			return CmdGoDocBegin, false, nil
-		case "?":
-			return CmdStatus, false, nil
-		case "A":
-			return CmdAutoAlign, false, nil
-		case "N":
-			r.prefix = "ON"
-			return CmdPrefixON, true, nil
-		case "\r", "\n":
-			return CmdCloseDialog, false, nil
-		default:
-			return "", false, fmt.Errorf("unsupported sequence Ctrl+O+%s", ctrlKey)
-		}
-
-	case "ON":
-		r.prefix = ""
-		switch ctrlKey {
-		case "D":
-			return CmdEditNote, false, nil
-		case "V":
-			return CmdConvertNote, false, nil
-		default:
-			return "", false, fmt.Errorf("unsupported sequence Ctrl+O,N+%s", ctrlKey)
-		}
-
-	case "P":
-		r.prefix = ""
-		switch ctrlKey {
-		case "B":
-			return CmdStyleBold, false, nil
-		case "=":
-			return CmdStyleFont, false, nil
-		case "?":
-			return CmdChangePrinter, false, nil
-		default:
-			return "", false, fmt.Errorf("unsupported sequence Ctrl+P+%s", ctrlKey)
-		}
-
-	case "Q":
-		r.prefix = ""
-		switch ctrlKey {
-		case "F":
-			return CmdFind, false, nil
-		case "A":
-			return CmdFindReplace, false, nil
-		case "E":
-			return CmdBasicRenum, false, nil
-		case "G":
-			return CmdGoToChar, false, nil
-		case "I":
-			return CmdGoToPage, false, nil
-		case "M":
-			return CmdCalculator, false, nil
-		case "=":
-			return CmdGoToFontTag, false, nil
-		case "<":
-			return CmdGoToStyleTag, false, nil
-		case "N":
-			r.prefix = "QN"
-			return CmdPrefixQN, true, nil
-		case "P":
-			return CmdGoPrevPosition, false, nil
-		case "V":
-			return CmdGoLastFindReplace, false, nil
-		case "B":
-			return CmdGoBlockBegin, false, nil
-		case "K":
-			return CmdGoBlockEnd, false, nil
-		case "R":
-			return CmdRule, false, nil
-		case "C":
-			return CmdGoDocEnd, false, nil
-		case "D":
-			return CmdBasicDelete, false, nil
-		case "W":
-			return CmdScrollContUp, false, nil
-		case "Z":
-			return CmdScrollContDown, false, nil
-		case "Y":
-			return CmdDeleteLineRight, false, nil
-		case "\b", "\x7f":
-			return CmdDeleteLineLeft, false, nil
-		default:
-			if ctrlKey >= "0" && ctrlKey <= "9" {
-				return MarkerGoCmd(ctrlKey), false, nil
-			}
-			return "", false, fmt.Errorf("unsupported sequence Ctrl+Q+%s", ctrlKey)
-		}
-
-	case "QN":
-		r.prefix = ""
-		switch ctrlKey {
-		case "G":
-			return CmdGoToNote, false, nil
-		default:
-			return "", false, fmt.Errorf("unsupported sequence Ctrl+Q,N+%s", ctrlKey)
-		}
-
-	case "M":
-		r.prefix = ""
-		switch ctrlKey {
-		case "G":
-			return CmdInsertExtendedChar, false, nil
-		default:
-			return "", false, fmt.Errorf("unsupported sequence Ctrl+M+%s", ctrlKey)
-		}
+	if r.commandByChord == nil {
+		_ = r.ApplyKeybinds(DefaultKeybindDefinitions())
 	}
 
-	// No prefix — single-key Ctrl commands
-	switch ctrlKey {
-	case "S":
-		return CmdCursorLeft, false, nil
-	case "D":
-		return CmdCursorRight, false, nil
-	case "E":
-		return CmdCursorUp, false, nil
-	case "X":
-		return CmdCursorDown, false, nil
-	case "R":
-		return CmdPageUp, false, nil
-	case "C":
-		return CmdPageDown, false, nil
-	case "W":
-		return CmdClose, false, nil
-	case "Y":
-		return CmdDeleteLine, false, nil
-	case "T":
-		return CmdDeleteWord, false, nil
-	case "N":
-		return CmdNewTab, false, nil
-	case "U":
-		return CmdUndo, false, nil
-	case "L":
-		return CmdRepeatFind, false, nil
-	case "V":
-		return CmdInsertMode, false, nil
-	case "K":
-		r.prefix = "K"
-		return CmdPrefixK, true, nil
-	case "O":
-		r.prefix = "O"
-		return CmdPrefixO, true, nil
-	case "P":
-		r.prefix = "P"
-		return CmdPrefixP, true, nil
-	case "Q":
-		r.prefix = "Q"
-		return CmdPrefixQ, true, nil
-	case "M":
-		r.prefix = "M"
-		return CmdPrefixM, true, nil
-	default:
-		return "", false, fmt.Errorf("unsupported Ctrl+%s", ctrlKey)
+	next := ctrlKey
+	if r.prefix != "" {
+		next = r.prefix + "," + ctrlKey
 	}
+
+	if cmd, ok := r.commandByChord[next]; ok {
+		r.prefix = ""
+		return cmd, false, nil
+	}
+
+	if r.prefix == "K" && ctrlKey >= "0" && ctrlKey <= "9" {
+		r.prefix = ""
+		return MarkerSetCmd(ctrlKey), false, nil
+	}
+	if r.prefix == "Q" && ctrlKey >= "0" && ctrlKey <= "9" {
+		r.prefix = ""
+		return MarkerGoCmd(ctrlKey), false, nil
+	}
+
+	if hasChordPrefix(r.commandByChord, next) {
+		r.prefix = next
+		return prefixCommand(next), true, nil
+	}
+
+	r.prefix = ""
+	return "", false, fmt.Errorf("unsupported sequence Ctrl+%s", strings.ReplaceAll(next, ",", "+"))
 }
 
 // ClearPrefix resets any accumulated prefix state.
@@ -391,3 +257,36 @@ func (r *Resolver) HasPrefix() bool { return r.prefix != "" }
 
 // CurrentPrefix returns the raw prefix string currently accumulated (e.g. "K", "KQ", "O", "Q", "P").
 func (r *Resolver) CurrentPrefix() string { return r.prefix }
+
+func hasChordPrefix(chords map[string]Command, candidate string) bool {
+	prefix := candidate + ","
+	for chord := range chords {
+		if strings.HasPrefix(chord, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func prefixCommand(prefix string) Command {
+	switch prefix {
+	case "K":
+		return CmdPrefixK
+	case "K,Q":
+		return CmdPrefixKQ
+	case "O":
+		return CmdPrefixO
+	case "O,N":
+		return CmdPrefixON
+	case "P":
+		return CmdPrefixP
+	case "Q":
+		return CmdPrefixQ
+	case "Q,N":
+		return CmdPrefixQN
+	case "M":
+		return CmdPrefixM
+	default:
+		return ""
+	}
+}
