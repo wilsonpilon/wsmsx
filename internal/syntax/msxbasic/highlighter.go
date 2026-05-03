@@ -9,35 +9,45 @@ import (
 
 const dialectID = "msx-basic"
 
-// Commands sourced from msxWrite/msx_basic_decoder.py TOKEN_MAP.
-var commands = map[string]struct{}{
-	"END": {}, "FOR": {}, "NEXT": {}, "DATA": {}, "INPUT": {}, "DIM": {}, "READ": {}, "LET": {}, "GOTO": {}, "RUN": {},
-	"IF": {}, "RESTORE": {}, "GOSUB": {}, "RETURN": {}, "REM": {}, "STOP": {}, "PRINT": {}, "CLEAR": {}, "LIST": {},
-	"NEW": {}, "ON": {}, "WAIT": {}, "DEF": {}, "POKE": {}, "CONT": {}, "CSAVE": {}, "CLOAD": {}, "OUT": {}, "LPRINT": {},
-	"LLIST": {}, "CLS": {}, "WIDTH": {}, "ELSE": {}, "TRON": {}, "TROFF": {}, "SWAP": {}, "ERASE": {}, "ERROR": {},
-	"RESUME": {}, "DELETE": {}, "AUTO": {}, "RENUM": {}, "DEFSTR": {}, "DEFINT": {}, "DEFSNG": {}, "DEFDBL": {},
-	"LINE": {}, "OPEN": {}, "FIELD": {}, "GET": {}, "PUT": {}, "CLOSE": {}, "LOAD": {}, "MERGE": {}, "FILES": {},
-	"LSET": {}, "RSET": {}, "SAVE": {}, "LFILES": {}, "CIRCLE": {}, "COLOR": {}, "DRAW": {}, "PAINT": {}, "BEEP": {},
-	"PLAY": {}, "PSET": {}, "PRESET": {}, "SOUND": {}, "SCREEN": {}, "VPOKE": {}, "SPRITE": {}, "VDP": {}, "BASE": {},
-	"CALL": {}, "TIME": {}, "KEY": {}, "MAX": {}, "MOTOR": {}, "BLOAD": {}, "BSAVE": {}, "DSKO$": {},
-	"SET": {}, "NAME": {}, "KILL": {}, "IPL": {}, "COPY": {}, "CMD": {}, "LOCATE": {},
-	"TO": {}, "THEN": {}, "TAB(": {}, "STEP": {}, "USR": {}, "FN": {}, "SPC(": {}, "NOT": {}, "ERL": {}, "ERR": {},
-	"STRING$": {}, "USING": {}, "INSTR": {}, "VARPTR": {}, "CSRLIN": {}, "ATTR$": {}, "DSKI$": {}, "OFF": {},
-	"INKEY$": {}, "POINT": {}, "AND": {}, "OR": {}, "XOR": {}, "EQV": {}, "IMP": {}, "MOD": {},
-	"'": {},
+// Keywords sourced from basic-dignified/msx/badig_msx.py.
+var instructionKeywords = map[string]struct{}{
+	"AS": {}, "BASE": {}, "BEEP": {}, "BLOAD": {}, "BSAVE": {}, "CALL": {}, "CIRCLE": {},
+	"CLEAR": {}, "CLOAD": {}, "CLOSE": {}, "CLS": {}, "CMD": {}, "COLOR": {}, "CONT": {},
+	"COPY": {}, "CSAVE": {}, "CSRLIN": {}, "DEF": {}, "DEFDBL": {}, "DEFINT": {}, "MAXFILES": {},
+	"DEFSNG": {}, "DEFSTR": {}, "DIM": {}, "DRAW": {}, "DSKI": {}, "END": {}, "EQV": {},
+	"ERASE": {}, "ERR": {}, "ERROR": {}, "FIELD": {}, "FILES": {}, "FN": {}, "FOR": {}, "GET": {},
+	"IF": {}, "INPUT": {}, "INTERVAL": {}, "IMP": {}, "IPL": {}, "KILL": {}, "LET": {},
+	"LFILES": {}, "LINE": {}, "LOAD": {}, "LOCATE": {}, "LPRINT": {}, "LSET": {}, "MAX": {},
+	"MERGE": {}, "MOTOR": {}, "NAME": {}, "NEW": {}, "NEXT": {}, "OFF": {}, "ON": {}, "OPEN": {},
+	"OUT": {}, "OUTPUT": {}, "PAINT": {}, "POINT": {}, "POKE": {}, "PRESET": {}, "PRINT": {},
+	"PSET": {}, "PUT": {}, "READ": {}, "RSET": {}, "SAVE": {}, "SCREEN": {}, "SET": {},
+	"SOUND": {}, "STEP": {}, "STOP": {}, "SWAP": {}, "TIME": {}, "TO": {}, "TROFF": {},
+	"TRON": {}, "USING": {}, "VPOKE": {}, "WAIT": {}, "WIDTH": {}, "?": {}, "DATA": {},
 }
 
-// Functions sourced from msxWrite/msx_basic_decoder.py TOKEN_MAP_FF.
-var functions = map[string]struct{}{
-	"LEFT$": {}, "RIGHT$": {}, "MID$": {}, "SGN": {}, "INT": {}, "ABS": {}, "SQR": {}, "RND": {}, "SIN": {}, "LOG": {},
-	"EXP": {}, "COS": {}, "TAN": {}, "ATN": {}, "FRE": {}, "INP": {}, "POS": {}, "LEN": {}, "STR$": {}, "VAL": {}, "ASC": {},
-	"CHR$": {}, "PEEK": {}, "VPEEK": {}, "SPACES$": {}, "OCT$": {}, "HEX$": {}, "LPOS": {}, "BIN$": {}, "CINT": {},
-	"CSNG": {}, "CDBL": {}, "FIX": {}, "STICK": {}, "STRIG": {}, "PDL": {}, "PAD": {}, "DSKF": {}, "FPOS": {}, "CVI": {},
-	"CVS": {}, "CVD": {}, "EOF": {}, "LOC": {}, "LOF": {}, "MKI$": {}, "MK$": {}, "MKD$": {},
+var functionKeywords = map[string]struct{}{
+	"ATTR$": {}, "BIN$": {}, "CHR$": {}, "DSKO$": {}, "HEX$": {}, "INKEY$": {}, "INPUT$": {},
+	"LEFT$": {}, "MID$": {}, "MKD$": {}, "MKI$": {}, "MKS$": {}, "OCT$": {}, "RIGHT$": {},
+	"SPACE$": {}, "SPRITE$": {}, "STR$": {}, "STRING$": {},
+	"ABS": {}, "ASC": {}, "ATN": {}, "CDBL": {}, "CINT": {}, "COS": {}, "CSNG": {}, "CVD": {},
+	"CVI": {}, "CVS": {}, "DSKF": {}, "EOF": {}, "EXP": {}, "FIX": {}, "FPOS": {}, "FRE": {},
+	"INP": {}, "INSTR": {}, "INT": {}, "KEY": {}, "LEN": {}, "LOC": {}, "LOF": {}, "LOG": {},
+	"LPOS": {}, "PAD": {}, "PDL": {}, "PEEK": {}, "PLAY": {}, "POS": {}, "RND": {}, "SGN": {},
+	"SIN": {}, "SPC": {}, "SPRITE": {}, "SQR": {}, "STICK": {}, "STRIG": {}, "TAB": {}, "TAN": {},
+	"VAL": {}, "VARPTR": {}, "VDP": {}, "VPEEK": {},
+}
+
+var jumpKeywords = map[string]struct{}{
+	"RESTORE": {}, "AUTO": {}, "RENUM": {}, "DELETE": {}, "RESUME": {}, "ERL": {}, "ELSE": {},
+	"RUN": {}, "LIST": {}, "LLIST": {}, "GOTO": {}, "RETURN": {}, "THEN": {}, "GOSUB": {},
+}
+
+var wordOperators = map[string]struct{}{
+	"AND": {}, "MOD": {}, "NOT": {}, "OR": {}, "XOR": {},
 }
 
 var operators = map[rune]struct{}{
-	'>': {}, '=': {}, '<': {}, '+': {}, '-': {}, '*': {}, '/': {}, '^': {}, '\\': {}, ':': {}, ',': {}, ';': {}, '(': {}, ')': {},
+	'>': {}, '=': {}, '<': {}, '+': {}, '-': {}, '*': {}, '/': {}, '^': {}, '\\': {}, ':': {}, ',': {}, ';': {}, '(': {}, ')': {}, '#': {},
 }
 
 type Highlighter struct{}
@@ -65,6 +75,13 @@ func (h *Highlighter) HighlightLine(line string) []core.Token {
 		if ch == '\'' {
 			tokens = append(tokens, core.Token{Kind: core.TokenComment, Value: line[i:]})
 			break
+		}
+
+		if ch == '?' {
+			tokens = append(tokens, core.Token{Kind: core.TokenKeyword, Value: "?"})
+			i++
+			lineStart = false
+			continue
 		}
 
 		if ch == '"' {
@@ -101,17 +118,9 @@ func (h *Highlighter) HighlightLine(line string) []core.Token {
 			continue
 		}
 
-		if unicode.IsDigit(ch) || (ch == '&' && i+1 < len(line) && (line[i+1] == 'H' || line[i+1] == 'h' || line[i+1] == 'O' || line[i+1] == 'o')) {
+		if unicode.IsDigit(ch) || (ch == '&' && i+1 < len(line) && (line[i+1] == 'H' || line[i+1] == 'h' || line[i+1] == 'O' || line[i+1] == 'o' || line[i+1] == 'B' || line[i+1] == 'b')) {
 			start := i
-			i++
-			for i < len(line) {
-				r := rune(line[i])
-				if unicode.IsDigit(r) || unicode.IsLetter(r) || r == '.' {
-					i++
-					continue
-				}
-				break
-			}
+			i = consumeNumber(line, i)
 			tokens = append(tokens, core.Token{Kind: core.TokenNumber, Value: line[start:i]})
 			lineStart = false
 			continue
@@ -137,16 +146,17 @@ func (h *Highlighter) HighlightLine(line string) []core.Token {
 				}
 				break
 			}
-			if i < len(line) && line[i] == '(' {
-				if _, ok := commands[upper+"("]; ok {
-					tokens = append(tokens, core.Token{Kind: core.TokenKeyword, Value: word})
-					lineStart = false
-					continue
-				}
-			}
-			if _, ok := commands[upper]; ok {
+			if _, ok := wordOperators[upper]; ok {
+				tokens = append(tokens, core.Token{Kind: core.TokenOperator, Value: word})
+			} else if _, ok := jumpKeywords[upper]; ok {
+				tokens = append(tokens, core.Token{Kind: core.TokenJump, Value: word})
+			} else if _, ok := instructionKeywords[upper]; ok {
 				tokens = append(tokens, core.Token{Kind: core.TokenKeyword, Value: word})
-			} else if _, ok := functions[upper]; ok {
+			} else if isDefUSRInstruction(upper) {
+				tokens = append(tokens, core.Token{Kind: core.TokenKeyword, Value: word})
+			} else if _, ok := functionKeywords[upper]; ok {
+				tokens = append(tokens, core.Token{Kind: core.TokenFunction, Value: word})
+			} else if isUSRFunction(upper) {
 				tokens = append(tokens, core.Token{Kind: core.TokenFunction, Value: word})
 			} else {
 				tokens = append(tokens, core.Token{Kind: core.TokenIdent, Value: word})
@@ -171,4 +181,41 @@ func (h *Highlighter) HighlightLine(line string) []core.Token {
 		return []core.Token{{Kind: core.TokenPlain, Value: ""}}
 	}
 	return tokens
+}
+
+func consumeNumber(line string, i int) int {
+	i++
+	for i < len(line) {
+		r := rune(line[i])
+		if unicode.IsDigit(r) || unicode.IsLetter(r) || r == '.' || r == '+' || r == '-' || r == '%' || r == '#' || r == '!' {
+			i++
+			continue
+		}
+		break
+	}
+	return i
+}
+
+func isDefUSRInstruction(word string) bool {
+	if !strings.HasPrefix(word, "DEFUSR") {
+		return false
+	}
+	for _, ch := range word[len("DEFUSR"):] {
+		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func isUSRFunction(word string) bool {
+	if !strings.HasPrefix(word, "USR") {
+		return false
+	}
+	for _, ch := range word[len("USR"):] {
+		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
+	return true
 }

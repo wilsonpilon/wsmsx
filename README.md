@@ -1,6 +1,6 @@
 # WS7 Editor
 
-![WS7 screenshot](images/wsmsx-03.png)
+![WS7 screenshot](images/wsmsx-04.png)
 
 Text editor in Go + Fyne, inspired by the WordStar 7.0 workflow, focused on MSX-BASIC development.
 
@@ -27,7 +27,15 @@ Text editor in Go + Fyne, inspired by the WordStar 7.0 workflow, focused on MSX-
 
 ## Recent Changes
 
-- **Current release is `0.2.3`** with major improvements to editor styling and tool integration.
+- **Current release is `0.2.5`** with major improvements to syntax highlight preview and theme customization.
+- **Inline syntax highlight preview (live)**:
+  - The editor now renders colorized syntax directly in the editing area through an overlay, while keeping normal text editing behavior.
+  - MSX-BASIC highlighting differentiates instructions, jump commands, functions, operators, numbers, strings, comments, and identifiers.
+  - During `Utilities > Configure...`, syntax theme changes are previewed live in the editor and only persisted on `Save`.
+- **Syntax theme management in Configure**:
+  - Built-in presets: `MSX Dark`, `MSX Light`, `MSX Green Screen`, `Cobalt`, `Amber`.
+  - Custom theme flow: `New Theme`, `Reset to Preset`, `Delete Theme`, `Import JSON`, `Export JSON`.
+  - Per-category color controls now use compact icon actions (palette + copy) with tooltip hints.
 - **Style > Font... (Ctrl+P,=)**: Configure bundled monospace fonts with family/size/weight/italic selection.
   - Supports Source Code Pro variants (ExtraLight, Light, Regular, Medium, SemiBold, Bold, ExtraBold, Black).
   - MSX Screen 0/1 fonts available.
@@ -47,7 +55,6 @@ Text editor in Go + Fyne, inspired by the WordStar 7.0 workflow, focused on MSX-
 - **Utilities > RULE (Regua)**: Floating 132-column character ruler overlay.
 - **Top fixed ruler alignment fix**: The ruler now starts at text column 1 (right after the line-number gutter), instead of the far-left window edge.
 - **Utilities > Calculator (Ctrl+Q,M)**: Expression calculator with arithmetic, bitwise, shifts/rotates.
-- Editor `View` menu includes optional split syntax mode (Show/Hide Split Syntax Preview).
 - Exiting the app checks unsaved changes across all open tabs.
 - Build script supports `-Run` and `-OpenOutputFolder` options.
 
@@ -79,7 +86,7 @@ build.ps1                        Windows build
 
 ## Versioning and Releases
 
-- Current app version is `0.2.3`.
+- Current app version is `0.2.5`.
 - Bump version in `internal/version/version.go` before each release.
 - Register new work under `## [Unreleased]` in `CHANGELOG.md`, then cut a dated version section.
 

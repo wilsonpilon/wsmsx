@@ -20,6 +20,27 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 - (none yet)
 
+## [0.2.5] - 2026-05-03
+
+### Added
+
+- Added inline live syntax highlight preview in the editor workflow with explicit category coloring for MSX-BASIC tokens.
+- Added richer syntax-theme management in `Utilities > Configure...`:
+  - built-in presets (`MSX Dark`, `MSX Light`, `MSX Green Screen`, `Cobalt`, `Amber`)
+  - custom theme actions (`New Theme`, `Reset to Preset`, `Delete Theme`)
+  - JSON import/export for sharing syntax themes.
+- Added compact icon actions in syntax color rows (`pick color` and `copy hex`) with hover tooltip hints.
+
+### Changed
+
+- Bumped app version to `0.2.5` in `internal/version/version.go`.
+- Configure dialog now applies editor/syntax theme preview live while open, persisting only on `Save`.
+- Updated documentation (`README.md`, `OUTLINE.md`, `MANUAL.md`) to `0.2.5` and highlighted syntax preview behavior.
+
+### Fixed
+
+- Fixed duplicated/offset text rendering in editor when syntax overlay is active by forcing underlying entry text layer to remain transparent.
+
 ## [0.2.3] - 2026-05-02
 
 ### Changed
@@ -203,8 +224,8 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 To bump the version, edit `internal/version/version.go`:
 
 ```go
-const Version = "0.2.3"  // example patch bump
+const Version = "0.2.5"  // example patch bump
 ```
 
-Then add a new entry at the top of this file under `## [0.2.3] - YYYY-MM-DD`.
+Then add a new entry at the top of this file under `## [0.2.5] - YYYY-MM-DD`.
 

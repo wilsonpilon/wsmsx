@@ -13,7 +13,7 @@ Este arquivo resume o plano e o estado do projeto para retomar rapidamente em ou
 
 ## 2) Contexto do projeto (estrutura e stack)
 
-- Workspace: `C:\Users\wilso\go\src\ws7`
+- Workspace: `E:\wsmsx`
 - Entry point: `cmd/ws7/main.go`
 - UI principal/editor: `internal/ui/editor.go`
 - Tela inicial/browser: `internal/ui/filebrowser.go`
@@ -28,7 +28,7 @@ Este arquivo resume o plano e o estado do projeto para retomar rapidamente em ou
 Stack confirmada:
 
 - Go 1.22 (`go.mod`)
-- `fyne.io/fyne/v2 v2.5.0`
+- `fyne.io/fyne/v2 v2.7.3`
 - `modernc.org/sqlite v1.30.1`
 
 ## 3) Decisoes de arquitetura/UX tomadas
@@ -107,6 +107,17 @@ Stack confirmada:
 21. **[DOCS]** Atualizacao de documentacao para build Windows:
     - `README.md` e `MANUAL.md` agora incluem exemplos de `build.ps1` com `-NoConsole` e `-Console`.
     - Registrada a regra de exclusao mutua entre esses dois switches.
+22. **[0.2.5]** Evolucao do syntax highlighting (MSX-BASIC):
+    - Classificacao expandida por categoria (`instruction`, `jump`, `function`, `operator`, `number`, `string`, `comment`, `identifier`).
+    - Suporte a novos casos de tokenizacao de numericos e palavras-chave MSX.
+23. **[0.2.5]** Preview inline de syntax highlight consolidado:
+    - Renderizacao colorizada sobreposta diretamente na area de edicao.
+    - Ajustes para evitar camada de texto duplicada quando temas sao alterados.
+24. **[0.2.5]** Gerenciamento de temas de sintaxe em `Configure`:
+    - Presets extras (`MSX Green Screen`, `Cobalt`, `Amber`).
+    - Fluxo de tema custom (`New`, `Reset to Preset`, `Delete`, `Import/Export JSON`).
+    - Preview ao vivo no editor enquanto o dialogo de configuracao esta aberto, com rollback em `Cancel`.
+    - Controles compactos por icone (palette/copy) para ajuste de cores.
 
 ## 5) Mapeamento de teclas WordStar (estado atual)
 
@@ -161,7 +172,7 @@ Stack confirmada:
 Comandos:
 
 ```powershell
-cd C:\Users\<SEU_USUARIO>\go\src\ws7
+cd E:\wsmsx
 go mod tidy
 go test ./...
 go run ./cmd/ws7
@@ -201,7 +212,7 @@ Validacao funcional recomendada no app:
 Use este prompt inicial:
 
 ```text
-Contexto: Projeto WS7 em Go + Fyne (WordStar-like editor) em `C:\Users\<user>\go\src\ws7`.
+Contexto: Projeto WS7 em Go + Fyne (WordStar-like editor) em `E:\wsmsx`.
 
 Antes de qualquer alteracao:
 1) Leia `OUTLINE.md`, `README.md`, `MANUAL.md`.

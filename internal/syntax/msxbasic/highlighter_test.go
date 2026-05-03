@@ -13,7 +13,7 @@ func TestHighlightLineKeywordsNumbersAndString(t *testing.T) {
 
 	assertHasToken(t, tokens, core.TokenNumber, "10")
 	assertHasToken(t, tokens, core.TokenKeyword, "IF")
-	assertHasToken(t, tokens, core.TokenKeyword, "THEN")
+	assertHasToken(t, tokens, core.TokenJump, "THEN")
 	assertHasToken(t, tokens, core.TokenKeyword, "PRINT")
 	assertHasToken(t, tokens, core.TokenString, "\"OK\"")
 }
@@ -44,17 +44,36 @@ func TestHighlightLineFunctionToken(t *testing.T) {
 func TestHighlightLineCommandWithParenStaysKeyword(t *testing.T) {
 	h := NewHighlighter()
 	tokens := h.HighlightLine("X=TAB(10):Y=SPC(2)")
-	assertHasToken(t, tokens, core.TokenKeyword, "TAB")
-	assertHasToken(t, tokens, core.TokenKeyword, "SPC")
+	assertHasToken(t, tokens, core.TokenFunction, "TAB")
+	assertHasToken(t, tokens, core.TokenFunction, "SPC")
 }
 
 func TestHighlightLineNumericLiteralFormats(t *testing.T) {
 	h := NewHighlighter()
-	tokens := h.HighlightLine("10 A=&HFF:B=&O377:C=42")
+	tokens := h.HighlightLine("10 A=&HFF:B=&O377:C=&B1010:D=42")
 	assertHasToken(t, tokens, core.TokenNumber, "10")
 	assertHasToken(t, tokens, core.TokenNumber, "&HFF")
 	assertHasToken(t, tokens, core.TokenNumber, "&O377")
+	assertHasToken(t, tokens, core.TokenNumber, "&B1010")
 	assertHasToken(t, tokens, core.TokenNumber, "42")
+}
+
+func TestHighlightLineJumpsAndWordOperators(t *testing.T) {
+	h := NewHighlighter()
+	tokens := h.HighlightLine("IF A AND B THEN GOTO 100 ELSE RUN")
+	assertHasToken(t, tokens, core.TokenKeyword, "IF")
+	assertHasToken(t, tokens, core.TokenOperator, "AND")
+	assertHasToken(t, tokens, core.TokenJump, "THEN")
+	assertHasToken(t, tokens, core.TokenJump, "GOTO")
+	assertHasToken(t, tokens, core.TokenJump, "ELSE")
+	assertHasToken(t, tokens, core.TokenJump, "RUN")
+}
+
+func TestHighlightLineDefUSRAndUSR(t *testing.T) {
+	h := NewHighlighter()
+	tokens := h.HighlightLine("DEFUSR1=&H1234:X=USR1(0)")
+	assertHasToken(t, tokens, core.TokenKeyword, "DEFUSR1")
+	assertHasToken(t, tokens, core.TokenFunction, "USR1")
 }
 
 func assertHasToken(t *testing.T, tokens []core.Token, kind core.TokenKind, value string) {

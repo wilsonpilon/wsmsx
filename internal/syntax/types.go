@@ -7,6 +7,7 @@ type TokenKind = core.TokenKind
 const (
 	TokenPlain    TokenKind = core.TokenPlain
 	TokenKeyword  TokenKind = core.TokenKeyword
+	TokenJump     TokenKind = core.TokenJump
 	TokenFunction TokenKind = core.TokenFunction
 	TokenComment  TokenKind = core.TokenComment
 	TokenString   TokenKind = core.TokenString

@@ -2,7 +2,7 @@
 
 Usage guide for the WS7 editor (Go + Fyne), with commands inspired by WordStar.
 
-Current documented version: `0.2.3`.
+Current documented version: `0.2.5`.
 
 ## 1) How to Start the Program
 
@@ -46,7 +46,8 @@ Startup menu details (current):
 - `Utilities > Macros`
   - `Play... MP`, `Record... MR`, `Edit/Create... MD`, `Single Step... MS`, `Copy... MO`, `Delete... MY`, `Rename... ME`
 - `Utilities > Configure...`
-  - Choose editor theme (`Dark` / `Light`).
+  - Choose editor theme (`Dark`, `Light`, `One Dark`, `Monokai`, `Solarized Dark`, `Github Dark`).
+  - Manage syntax themes (presets and custom themes) with live preview.
   - Configure executable paths for `openMSX`, `msxbas2rom`, `BASIC Dignified`, and `MSX Encoding`.
 - `Additional`
   - `Character Editor... AC`, `Hexa Editor... AH`, `Sprite Editor... AS`, `Graphos... AG`, `Noise Editor... AN`
@@ -84,9 +85,8 @@ Current editor features:
 - `View > Syntax` exposes BASIC dialect options for highlighting.
   - Current active highlighter: `MSX-BASIC Official`.
   - `MSXBAS2ROM` and `BASIC Dignified` are listed as future options.
-- Editor supports optional split syntax preview beside the text editor.
-  - Toggle it in `View > Show Split Syntax Preview` / `View > Hide Split Syntax Preview`.
-  - Inline syntax highlighting remains active in normal (non-split) mode.
+- Syntax highlighting is rendered inline as a live preview overlay in the editor area.
+  - Categories are colorized independently (instruction, jump, function, operator, number, string, comment, identifier).
 - **Style menu** (`Style`):
   - `Bold (Ctrl+P,B)`: Toggle bold rendering on current tab; gutter and ruler adapt to font metrics.
   - `Font... (Ctrl+P,=)`: Open font configuration dialog.
@@ -101,6 +101,8 @@ Current editor features:
     - `Lowercase (Ctrl+K,')`: Convert to lowercase.
     - `Capitalize (Ctrl+K,.)`: Capitalize First Letter Of Each Word.
 - `Utilities > Configure...` is also available inside the editor with the same settings.
+  - Live preview is applied while the dialog is open for editor theme and syntax theme changes.
+  - If you cancel/close without saving, preview changes are rolled back.
   - Folder browser for each external tool.
   - Auto-detection of tool executable/script when folder is selected.
   - `Test` button per tool to pre-validate path (lightweight probe execution).
@@ -220,6 +222,13 @@ Access via `Utilities > Configure...` (in both Opening Menu and Editor).
 Configuration items:
 
 - **Editor Theme**: Dark, Light, One Dark, Monokai, Solarized Dark, Github Dark.
+- **Syntax Theme**:
+  - Presets: `MSX Dark`, `MSX Light`, `MSX Green Screen`, `Cobalt`, `Amber`.
+  - Actions: `New Theme`, `Reset to Preset`, `Delete Theme`, `Import JSON`, `Export JSON`.
+  - Color categories are edited with compact icon controls:
+    - palette icon: open color picker
+    - copy icon: copy current hex color
+  - Built-in syntax themes are read-only; custom themes are editable.
 - **Tool paths** (one entry per external tool):
   - openMSX
   - msxbas2rom

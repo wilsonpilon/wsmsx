@@ -5,8 +5,9 @@ type TokenKind string
 
 const (
 	TokenPlain    TokenKind = "plain"
-	TokenKeyword  TokenKind = "keyword"
-	TokenFunction TokenKind = "function"
+	TokenKeyword  TokenKind = "keyword"  // instructions  (PRINT, CLS, COLOR…)
+	TokenJump     TokenKind = "jump"     // jump commands  (GOTO, GOSUB, THEN…)
+	TokenFunction TokenKind = "function" // functions      (LEFT$, INT, SIN…)
 	TokenComment  TokenKind = "comment"
 	TokenString   TokenKind = "string"
 	TokenNumber   TokenKind = "number"

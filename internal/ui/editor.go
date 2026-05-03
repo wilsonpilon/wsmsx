@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"image/color"
 	"io"
 	"net/http"
 	"net/url"
@@ -38,6 +39,7 @@ import (
 	"ws7/internal/config"
 	"ws7/internal/input"
 	"ws7/internal/store/sqlite"
+	"ws7/internal/syntax"
 	"ws7/internal/version"
 )
 
@@ -47,6 +49,8 @@ const ctrlKTimeout = 2 * time.Second
 
 const defaultMSXBasicASCIIExt = ".asc"
 const settingEditorThemeKey = "editor_theme"
+const settingEditorSyntaxThemeKey = "editor_syntax_theme"
+const settingEditorSyntaxThemesKey = "editor_syntax_themes_json"
 const settingEditorFontFamilyKey = "editor_font_family"
 const settingEditorFontWeightKey = "editor_font_weight"
 const settingEditorFontSizeKey = "editor_font_size"
@@ -116,6 +120,7 @@ type undoState struct {
 type editorTab struct {
 	item          *container.TabItem
 	entry         *cursorEntry
+	syntaxOverlay *syntaxOverlayWidget
 	ruler         *rulerWidget
 	floatingRuler *floatingRulerWidget // floating measurement ruler
 	lineNums      *lineNumbersWidget
@@ -176,6 +181,7 @@ type editorUI struct {
 	activeTab        *editorTab
 	untitledSeed     map[string]int
 	editorThemeID    string
+	editorSyntaxID   string
 	editorFontFamily string
 	editorFontWeight string
 	editorFontSize   float32
@@ -217,6 +223,7 @@ func Run() error {
 		store:            store,
 		tabState:         map[*container.TabItem]*editorTab{},
 		editorThemeID:    defaultEditorThemeID,
+		editorSyntaxID:   defaultSyntaxThemeForEditor(defaultEditorThemeID),
 		editorFontFamily: defaultEditorFontFamily,
 		editorFontWeight: defaultEditorFontWeight,
 		editorFontSize:   defaultEditorFontSize,
@@ -232,6 +239,18 @@ func Run() error {
 
 	if savedEditorThemeID, _ := store.GetSetting(context.Background(), settingEditorThemeKey); savedEditorThemeID != "" {
 		ui.editorThemeID = normalizeEditorThemeID(savedEditorThemeID)
+	}
+	if savedSyntaxThemesJSON, _ := store.GetSetting(context.Background(), settingEditorSyntaxThemesKey); strings.TrimSpace(savedSyntaxThemesJSON) != "" {
+		if parsedThemes, parseErr := parseCustomSyntaxThemesJSON(savedSyntaxThemesJSON); parseErr == nil {
+			setCustomSyntaxThemes(parsedThemes)
+		} else {
+			setCustomSyntaxThemes(nil)
+		}
+	}
+	if savedSyntaxThemeID, _ := store.GetSetting(context.Background(), settingEditorSyntaxThemeKey); savedSyntaxThemeID != "" {
+		ui.editorSyntaxID = normalizeSyntaxThemeID(savedSyntaxThemeID)
+	} else {
+		ui.editorSyntaxID = defaultSyntaxThemeForEditor(ui.editorThemeID)
 	}
 	if savedFamily, _ := store.GetSetting(context.Background(), settingEditorFontFamilyKey); strings.TrimSpace(savedFamily) != "" {
 		ui.editorFontFamily = normalizeEditorFontFamily(savedFamily)
@@ -320,6 +339,7 @@ func (e *editorUI) bindActiveTab(tab *editorTab) {
 	e.updateInternalClipboardIndicator()
 	e.updateTitle()
 	e.syncLineNumbers()
+	e.syncSyntaxOverlay()
 }
 
 func (e *editorUI) syncTokenizedMenu() {
@@ -382,6 +402,10 @@ func (e *editorUI) bindTabEntry(tab *editorTab) {
 		if prevOnChanged != nil {
 			prevOnChanged(text)
 		}
+		if tab.syntaxOverlay != nil {
+			tab.syntaxOverlay.SetText(text)
+		}
+
 		// Push undo state (old text) before recording the new text.
 		if !tab.undoing {
 			state := undoState{text: tab.lastKnownText, cursorRow: tab.cursorRow, cursorCol: tab.cursorCol}
@@ -581,7 +605,13 @@ func (e *editorUI) tabEditorContent(tab *editorTab) fyne.CanvasObject {
 
 	top := container.New(&rulerStartAtTextLayout{gutter: tab.lineNums}, tab.ruler)
 
-	mainContent := container.NewBorder(top, statusBar, tab.lineNums, nil, tab.entry)
+	hiddenTextEntry := container.NewThemeOverride(tab.entry, transparentEntryTextTheme{})
+	center := fyne.CanvasObject(hiddenTextEntry)
+	if tab.syntaxOverlay != nil {
+		center = container.NewStack(tab.syntaxOverlay, hiddenTextEntry)
+	}
+
+	mainContent := container.NewBorder(top, statusBar, tab.lineNums, nil, center)
 
 	// If ruleMode is active, stack the floating ruler over the main content
 	if tab.ruleMode && tab.floatingRuler != nil {
@@ -663,6 +693,7 @@ func (e *editorUI) newEditorTab(fileType newFileType) *editorTab {
 
 	tab := &editorTab{
 		entry:         newCursorEntry(),
+		syntaxOverlay: newSyntaxOverlayWidget(syntax.DialectMSXBasicOfficial, e.editorSyntaxID),
 		ruler:         newRulerWidget(),
 		floatingRuler: newFloatingRulerWidget(),
 		lineNums:      newLineNumbersWidget(),
@@ -672,8 +703,12 @@ func (e *editorUI) newEditorTab(fileType newFileType) *editorTab {
 		name:          name,
 		tokenizedSave: e.saveTokenized,
 	}
+	tab.entry.hideText = true
 	tab.blockTag.TextStyle = fyne.TextStyle{Bold: true}
 	tab.clipTag.TextStyle = fyne.TextStyle{Bold: true}
+	if tab.syntaxOverlay != nil {
+		tab.syntaxOverlay.SetText(tab.entry.Text)
+	}
 	e.bindTabEntry(tab)
 	e.applyEditorStyleToTab(tab)
 	tab.item = container.NewTabItem(name, e.tabEditorContent(tab))
@@ -2675,6 +2710,14 @@ func (e *editorUI) syncLineNumbers() {
 		e.activeTab.topLine = topLine
 	}
 	e.lineNums.Update(lineCount, topLine, e.cursorRow)
+	e.syncSyntaxOverlay()
+}
+
+func (e *editorUI) syncSyntaxOverlay() {
+	if e.activeTab == nil || e.activeTab.syntaxOverlay == nil {
+		return
+	}
+	e.activeTab.syntaxOverlay.SetTopLine(e.topLine)
 }
 
 func (e *editorUI) lineHeightPx() float32 {
@@ -2904,6 +2947,10 @@ func (e *editorUI) cmdChangeDirectory() {
 		e.browser.loadDir(abs)
 		e.showBrowser()
 	}, e.window)
+}
+
+func versionedFileName(base, ext string) string {
+	return strings.TrimSuffix(base, ext) + "-" + version.Version + ext
 }
 
 func configureInitialDirectory(rawPath, fallbackDir string) string {
@@ -3354,6 +3401,417 @@ func (e *editorUI) cmdConfigure() {
 
 	lastDir := loadSetting("last_dir")
 
+	customSyntaxThemes := cloneCustomSyntaxThemes()
+	initialCustomSyntaxThemes := cloneSyntaxThemeDefinitions(customSyntaxThemes)
+	initialEditorThemeID := e.editorThemeID
+	initialSyntaxThemeID := e.editorSyntaxID
+	syntaxThemeOptions := syntaxThemeOptionsForCustom(customSyntaxThemes)
+	currentSyntaxTheme := normalizeSyntaxThemeID(e.editorSyntaxID)
+	selectedSyntaxThemeID := currentSyntaxTheme
+	syntaxThemeSelect := widget.NewSelect(nil, nil)
+	syntaxThemeName := widget.NewEntry()
+	syntaxThemeName.SetPlaceHolder("Custom theme name")
+	var resetSyntaxThemeBtn *widget.Button
+	var deleteSyntaxThemeBtn *widget.Button
+	hexValidator := func(value string) error {
+		_, err := parseHexColor(value)
+		return err
+	}
+	colorEntries := make(map[string]*widget.Entry, len(syntaxThemeColorFields))
+	colorSwatches := make(map[string]*syntaxColorSwatch, len(syntaxThemeColorFields))
+	colorPickButtons := make(map[string]*iconTooltipButton, len(syntaxThemeColorFields))
+	colorCopyButtons := make(map[string]*iconTooltipButton, len(syntaxThemeColorFields))
+	previewFallback := color.NRGBA{R: 0x55, G: 0x55, B: 0x55, A: 0xFF}
+	refreshColorPreview := func(key, value string) {
+		swatch := colorSwatches[key]
+		if swatch == nil {
+			return
+		}
+		parsed, err := parseHexColor(value)
+		if err != nil {
+			swatch.SetColor(previewFallback)
+		} else {
+			swatch.SetColor(parsed)
+		}
+	}
+	openColorPicker := func(field syntaxThemeColorField) {
+		entry := colorEntries[field.Key]
+		if entry == nil || entry.Disabled() {
+			return
+		}
+		picker := dialog.NewColorPicker("Choose Syntax Color", "Pick a color for "+field.Label+".", func(c color.Color) {
+			if c == nil {
+				return
+			}
+			nrgba := color.NRGBAModel.Convert(c).(color.NRGBA)
+			nrgba.A = 0xFF
+			entry.SetText(formatHexColor(nrgba))
+		}, e.window)
+		picker.Advanced = true
+		if current, err := parseHexColor(entry.Text); err == nil {
+			picker.SetColor(current)
+		}
+		picker.Show()
+	}
+	applyCurrentSyntaxPalettePreview := func() {}
+	colorRows := make([]fyne.CanvasObject, 0, len(syntaxThemeColorFields))
+	for _, field := range syntaxThemeColorFields {
+		field := field
+		entry := widget.NewEntry()
+		entry.SetPlaceHolder("#RRGGBB")
+		entry.Validator = hexValidator
+		entry.OnChanged = func(value string) {
+			refreshColorPreview(field.Key, value)
+			applyCurrentSyntaxPalettePreview()
+		}
+		colorEntries[field.Key] = entry
+		swatch := newSyntaxColorSwatch(previewFallback, func() {
+			openColorPicker(field)
+		})
+		colorSwatches[field.Key] = swatch
+		pickBtn := newIconTooltipButton(theme.ColorPaletteIcon(), "Pick color", func() {
+			openColorPicker(field)
+		})
+		colorPickButtons[field.Key] = pickBtn
+		copyBtn := newIconTooltipButton(theme.ContentCopyIcon(), "Copy hex", func() {
+			hex := strings.TrimSpace(entry.Text)
+			if hex == "" {
+				return
+			}
+			e.window.Clipboard().SetContent(hex)
+			if e.status != nil {
+				e.status.SetText(field.Label + " color copied: " + hex)
+			}
+		})
+		colorCopyButtons[field.Key] = copyBtn
+		colorRows = append(colorRows, container.NewBorder(nil, nil,
+			widget.NewLabel(field.Label),
+			nil,
+			container.NewHBox(swatch, pickBtn, copyBtn),
+		))
+	}
+	paletteEditor := container.NewVBox(colorRows...)
+
+	parseSyntaxPaletteEntries := func() (syntaxPalette, error) {
+		colors := make(map[string]string, len(colorEntries))
+		for _, field := range syntaxThemeColorFields {
+			colors[field.Key] = strings.TrimSpace(colorEntries[field.Key].Text)
+		}
+		return syntaxPaletteFromHexMap(colors)
+	}
+
+	selectedEditorThemeID := func() string {
+		for _, opt := range themeOptions {
+			if opt.Label == themeSelect.Selected {
+				return opt.ID
+			}
+		}
+		return e.editorThemeID
+	}
+
+	applyConfigurePreview := func() {
+		e.editorThemeID = normalizeEditorThemeID(selectedEditorThemeID())
+		e.editorSyntaxID = normalizeSyntaxThemeID(selectedSyntaxThemeID)
+		setCustomSyntaxThemes(customSyntaxThemes)
+		e.applyCurrentEditorTheme()
+		e.applyCurrentSyntaxTheme()
+	}
+
+	applyCurrentSyntaxPalettePreview = func() {
+		def, ok := syntaxThemeDefinitionByIDWithCustom(selectedSyntaxThemeID, customSyntaxThemes)
+		if !ok || def.Builtin {
+			return
+		}
+		palette, err := parseSyntaxPaletteEntries()
+		if err != nil {
+			return
+		}
+		def.Palette = palette
+		customSyntaxThemes[def.ID] = def
+		applyConfigurePreview()
+	}
+
+	restoreConfigurePreviewState := func() {
+		e.editorThemeID = initialEditorThemeID
+		e.editorSyntaxID = initialSyntaxThemeID
+		setCustomSyntaxThemes(initialCustomSyntaxThemes)
+		e.applyCurrentEditorTheme()
+		e.applyCurrentSyntaxTheme()
+	}
+
+	refreshSyntaxThemeOptions := func(selectedID string) {
+		syntaxThemeOptions = syntaxThemeOptionsForCustom(customSyntaxThemes)
+		labels := make([]string, len(syntaxThemeOptions))
+		for i, opt := range syntaxThemeOptions {
+			labels[i] = opt.Label
+		}
+		syntaxThemeSelect.Options = labels
+		syntaxThemeSelect.SetSelected(syntaxThemeLabelForID(selectedID, syntaxThemeOptions))
+		syntaxThemeSelect.Refresh()
+	}
+
+	loadSyntaxThemeEditor := func(themeID string) {
+		def, ok := syntaxThemeDefinitionByIDWithCustom(themeID, customSyntaxThemes)
+		if !ok {
+			def = builtinSyntaxThemes[defaultSyntaxThemeID]
+			themeID = def.ID
+		}
+		selectedSyntaxThemeID = themeID
+		syntaxThemeName.SetText(def.Name)
+		hexColors := syntaxThemeColorHexMap(def.Palette)
+		for _, field := range syntaxThemeColorFields {
+			colorEntries[field.Key].SetText(hexColors[field.Key])
+			if def.Builtin {
+				colorEntries[field.Key].Disable()
+				colorSwatches[field.Key].SetEnabled(false)
+				colorPickButtons[field.Key].Disable()
+				colorCopyButtons[field.Key].Enable()
+			} else {
+				colorEntries[field.Key].Enable()
+				colorSwatches[field.Key].SetEnabled(true)
+				colorPickButtons[field.Key].Enable()
+				colorCopyButtons[field.Key].Enable()
+			}
+		}
+		if def.Builtin {
+			syntaxThemeName.Disable()
+			if resetSyntaxThemeBtn != nil {
+				resetSyntaxThemeBtn.Disable()
+			}
+			if deleteSyntaxThemeBtn != nil {
+				deleteSyntaxThemeBtn.Disable()
+			}
+		} else {
+			syntaxThemeName.Enable()
+			if resetSyntaxThemeBtn != nil {
+				resetSyntaxThemeBtn.Enable()
+			}
+			if deleteSyntaxThemeBtn != nil {
+				deleteSyntaxThemeBtn.Enable()
+			}
+		}
+		refreshSyntaxThemeOptions(themeID)
+		applyConfigurePreview()
+	}
+
+	commitCurrentSyntaxThemeForm := func() error {
+		def, ok := syntaxThemeDefinitionByIDWithCustom(selectedSyntaxThemeID, customSyntaxThemes)
+		if !ok || def.Builtin {
+			return nil
+		}
+		name := strings.TrimSpace(syntaxThemeName.Text)
+		if err := validateSyntaxThemeName(name, def.ID, customSyntaxThemes); err != nil {
+			syntaxThemeName.SetValidationError(err)
+			return err
+		}
+		palette, err := parseSyntaxPaletteEntries()
+		if err != nil {
+			return err
+		}
+		def.Name = name
+		def.Palette = palette
+		customSyntaxThemes[def.ID] = def
+		refreshSyntaxThemeOptions(def.ID)
+		return nil
+	}
+
+	themeSelect.OnChanged = func(string) {
+		applyConfigurePreview()
+	}
+
+	syntaxThemeSelect.OnChanged = func(label string) {
+		nextID := syntaxThemeIDForLabel(label, syntaxThemeOptions)
+		if nextID == "" || nextID == selectedSyntaxThemeID {
+			return
+		}
+		if err := commitCurrentSyntaxThemeForm(); err != nil {
+			dialog.ShowInformation("Syntax Theme", "Fix the current custom theme before switching: "+err.Error(), e.window)
+			refreshSyntaxThemeOptions(selectedSyntaxThemeID)
+			return
+		}
+		loadSyntaxThemeEditor(nextID)
+	}
+
+	newSyntaxThemeBtn := widget.NewButton("New Theme", func() {
+		if err := commitCurrentSyntaxThemeForm(); err != nil {
+			dialog.ShowInformation("New Syntax Theme", "Fix the current custom theme first: "+err.Error(), e.window)
+			return
+		}
+		baseDef, ok := syntaxThemeDefinitionByIDWithCustom(selectedSyntaxThemeID, customSyntaxThemes)
+		if !ok {
+			baseDef = builtinSyntaxThemes[defaultSyntaxThemeID]
+		}
+		candidateName := uniqueSyntaxThemeName(baseDef.Name+" Copy", customSyntaxThemes, "")
+		def, err := makeCustomSyntaxTheme(candidateName, baseDef, customSyntaxThemes)
+		if err != nil {
+			dialog.ShowError(err, e.window)
+			return
+		}
+		customSyntaxThemes[def.ID] = def
+		loadSyntaxThemeEditor(def.ID)
+		if e.status != nil {
+			e.status.SetText("Syntax theme created: " + def.Name)
+		}
+	})
+
+	resetSyntaxThemeBtn = widget.NewButton("Reset to Preset", func() {
+		def, ok := syntaxThemeDefinitionByIDWithCustom(selectedSyntaxThemeID, customSyntaxThemes)
+		if !ok {
+			dialog.ShowInformation("Reset Syntax Theme", "Current theme was not found.", e.window)
+			return
+		}
+		if def.Builtin {
+			dialog.ShowInformation("Reset Syntax Theme", "Select a custom theme to reset from a preset.", e.window)
+			return
+		}
+
+		builtinOptions := builtinSyntaxThemeOptions()
+		builtinLabels := make([]string, len(builtinOptions))
+		for i, opt := range builtinOptions {
+			builtinLabels[i] = opt.Label
+		}
+		presetSelect := widget.NewSelect(builtinLabels, nil)
+		presetSelect.SetSelected(syntaxThemeLabelForID(defaultSyntaxThemeForEditor(selectedEditorThemeID()), builtinOptions))
+
+		dialog.ShowForm("Reset to Preset", "Apply", "Cancel", []*widget.FormItem{
+			widget.NewFormItem("Preset", presetSelect),
+		}, func(ok bool) {
+			if !ok {
+				return
+			}
+			presetID := syntaxThemeIDForLabel(presetSelect.Selected, builtinOptions)
+			updated, err := resetCustomSyntaxThemeToBuiltin(def.ID, presetID, customSyntaxThemes)
+			if err != nil {
+				dialog.ShowError(err, e.window)
+				return
+			}
+			loadSyntaxThemeEditor(updated.ID)
+			if e.status != nil {
+				e.status.SetText("Syntax theme reset from preset: " + builtinSyntaxThemes[presetID].Name)
+			}
+		}, e.window)
+	})
+
+	deleteSyntaxThemeBtn = widget.NewButton("Delete Theme", func() {
+		def, ok := syntaxThemeDefinitionByIDWithCustom(selectedSyntaxThemeID, customSyntaxThemes)
+		if !ok {
+			dialog.ShowInformation("Delete Syntax Theme", "Current theme was not found.", e.window)
+			return
+		}
+		if def.Builtin {
+			dialog.ShowInformation("Delete Syntax Theme", "Built-in themes cannot be deleted.", e.window)
+			return
+		}
+		dialog.ShowConfirm("Delete Syntax Theme", "Delete custom theme \""+def.Name+"\"?", func(ok bool) {
+			if !ok {
+				return
+			}
+			nextID, err := deleteCustomSyntaxTheme(def.ID, selectedEditorThemeID(), customSyntaxThemes)
+			if err != nil {
+				dialog.ShowError(err, e.window)
+				return
+			}
+			loadSyntaxThemeEditor(nextID)
+			if e.status != nil {
+				e.status.SetText("Syntax theme deleted: " + def.Name)
+			}
+		}, e.window)
+	})
+
+	importSyntaxThemeBtn := widget.NewButton("Import JSON", func() {
+		if err := commitCurrentSyntaxThemeForm(); err != nil {
+			dialog.ShowInformation("Import Syntax Theme", "Fix the current custom theme first: "+err.Error(), e.window)
+			return
+		}
+		d := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
+			if err != nil {
+				dialog.ShowError(err, e.window)
+				return
+			}
+			if reader == nil {
+				return
+			}
+			defer func() { _ = reader.Close() }()
+			data, readErr := io.ReadAll(reader)
+			if readErr != nil {
+				dialog.ShowError(readErr, e.window)
+				return
+			}
+			def, importErr := importSyntaxThemeJSON(data, customSyntaxThemes)
+			if importErr != nil {
+				dialog.ShowError(importErr, e.window)
+				return
+			}
+			customSyntaxThemes[def.ID] = def
+			loadSyntaxThemeEditor(def.ID)
+			if e.status != nil {
+				e.status.SetText("Syntax theme imported: " + def.Name)
+			}
+		}, e.window)
+		d.SetFilter(storage.NewExtensionFileFilter([]string{".json"}))
+		if lastDir != "" {
+			u, err := storage.ParseURI("file://" + filepath.ToSlash(lastDir))
+			if err == nil {
+				if lister, lErr := storage.ListerForURI(u); lErr == nil {
+					d.SetLocation(lister)
+				}
+			}
+		}
+		d.Show()
+	})
+
+	exportSyntaxThemeBtn := widget.NewButton("Export JSON", func() {
+		if err := commitCurrentSyntaxThemeForm(); err != nil {
+			dialog.ShowInformation("Export Syntax Theme", "Fix the current custom theme first: "+err.Error(), e.window)
+			return
+		}
+		def, ok := syntaxThemeDefinitionByIDWithCustom(selectedSyntaxThemeID, customSyntaxThemes)
+		if !ok {
+			def = builtinSyntaxThemes[defaultSyntaxThemeID]
+		}
+		d := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
+			if err != nil {
+				dialog.ShowError(err, e.window)
+				return
+			}
+			if writer == nil {
+				return
+			}
+			data, marshalErr := exportSyntaxThemeJSON(def)
+			if marshalErr != nil {
+				_ = writer.Close()
+				dialog.ShowError(marshalErr, e.window)
+				return
+			}
+			if _, writeErr := writer.Write(data); writeErr != nil {
+				_ = writer.Close()
+				dialog.ShowError(writeErr, e.window)
+				return
+			}
+			if closeErr := writer.Close(); closeErr != nil {
+				dialog.ShowError(closeErr, e.window)
+				return
+			}
+			if e.status != nil {
+				e.status.SetText("Syntax theme exported: " + writer.URI().Path())
+			}
+		}, e.window)
+		d.SetFilter(storage.NewExtensionFileFilter([]string{".json"}))
+		d.SetFileName(slugifySyntaxThemeName(def.Name) + ".json")
+		if lastDir != "" {
+			u, err := storage.ParseURI("file://" + filepath.ToSlash(lastDir))
+			if err == nil {
+				if lister, lErr := storage.ListerForURI(u); lErr == nil {
+					d.SetLocation(lister)
+				}
+			}
+		}
+		d.Show()
+	})
+
+	syntaxThemeActions := container.NewHBox(newSyntaxThemeBtn, resetSyntaxThemeBtn, deleteSyntaxThemeBtn, importSyntaxThemeBtn, exportSyntaxThemeBtn)
+	loadSyntaxThemeEditor(currentSyntaxTheme)
+
 	testToolPath := func(title, toolID string, entry *widget.Entry) {
 		raw := strings.TrimSpace(entry.Text)
 		if raw == "" {
@@ -3643,6 +4101,10 @@ func (e *editorUI) cmdConfigure() {
 
 	form := widget.NewForm(
 		widget.NewFormItem("Editor Theme", themeSelect),
+		widget.NewFormItem("Syntax Theme", syntaxThemeSelect),
+		widget.NewFormItem("Syntax Theme Actions", syntaxThemeActions),
+		widget.NewFormItem("Custom Syntax Name", syntaxThemeName),
+		widget.NewFormItem("Syntax Colors", paletteEditor),
 		widget.NewFormItem("WS7 Directory", ws7DirField),
 		widget.NewFormItem("", ws7ValidationHint),
 		widget.NewFormItem("WS7 TEMP", ws7SubdirEntries["TEMP"]),
@@ -3665,7 +4127,12 @@ func (e *editorUI) cmdConfigure() {
 	)
 
 	var cfgDialog *dialog.CustomDialog
+	configSaved := false
 	saveConfig := func() {
+		if err := commitCurrentSyntaxThemeForm(); err != nil {
+			dialog.ShowInformation("Syntax Theme", "Fix the current custom syntax theme before saving: "+err.Error(), e.window)
+			return
+		}
 
 		nextTheme := editorThemeDarkID
 		for _, opt := range themeOptions {
@@ -3677,8 +4144,20 @@ func (e *editorUI) cmdConfigure() {
 		e.editorThemeID = nextTheme
 		e.applyCurrentEditorTheme()
 
+		setCustomSyntaxThemes(customSyntaxThemes)
+		e.editorSyntaxID = normalizeSyntaxThemeID(selectedSyntaxThemeID)
+		e.applyCurrentSyntaxTheme()
+
+		serializedSyntaxThemes, syntaxThemesErr := serializeCustomSyntaxThemes(customSyntaxThemes)
+		if syntaxThemesErr != nil {
+			dialog.ShowError(syntaxThemesErr, e.window)
+			return
+		}
+
 		if e.store != nil {
 			_ = e.store.SetSetting(context.Background(), settingEditorThemeKey, e.editorThemeID)
+			_ = e.store.SetSetting(context.Background(), settingEditorSyntaxThemeKey, e.editorSyntaxID)
+			_ = e.store.SetSetting(context.Background(), settingEditorSyntaxThemesKey, serializedSyntaxThemes)
 			_ = e.store.SetSetting(context.Background(), settingWS7BaseDirKey, normalizeWS7BaseDirectory(ws7BaseDir.Text))
 			_ = e.store.SetSetting(context.Background(), settingOpenMSXExeKey, strings.TrimSpace(openMSXExe.Text))
 			_ = e.store.SetSetting(context.Background(), settingOpenMSXMachineKey, normalizeOpenMSXResourceName(machineSelect.Selected))
@@ -3693,6 +4172,7 @@ func (e *editorUI) cmdConfigure() {
 		if e.status != nil {
 			e.status.SetText("Configuration saved")
 		}
+		configSaved = true
 		if cfgDialog != nil {
 			cfgDialog.Hide()
 		}
@@ -3707,6 +4187,11 @@ func (e *editorUI) cmdConfigure() {
 	actions := container.NewHBox(layout.NewSpacer(), cancelBtn, saveBtn)
 	content := container.NewBorder(nil, actions, nil, nil, container.NewVScroll(form))
 	cfgDialog = dialog.NewCustomWithoutButtons("Configure", content, e.window)
+	cfgDialog.SetOnClosed(func() {
+		if !configSaved {
+			restoreConfigurePreviewState()
+		}
+	})
 	cfgDialog.Resize(fyne.NewSize(1120, 700))
 	cfgDialog.Show()
 }
@@ -4969,6 +5454,10 @@ func (e *editorUI) applyEditorStyleToTab(tab *editorTab) {
 		tab.entry.TextStyle = style
 		tab.entry.Refresh()
 	}
+	if tab.syntaxOverlay != nil {
+		tab.syntaxOverlay.SetTextStyle(style.Bold, style.Italic)
+		tab.syntaxOverlay.SetSyntaxThemeID(e.editorSyntaxID)
+	}
 	if tab.ruler != nil {
 		tab.ruler.SetTextStyle(style.Bold, style.Italic)
 	}
@@ -4977,6 +5466,18 @@ func (e *editorUI) applyEditorStyleToTab(tab *editorTab) {
 	}
 	if tab.floatingRuler != nil {
 		tab.floatingRuler.SetTextStyle(style.Bold, style.Italic)
+	}
+}
+
+func (e *editorUI) applyCurrentSyntaxTheme() {
+	for _, tab := range e.tabState {
+		if tab == nil || tab.syntaxOverlay == nil {
+			continue
+		}
+		tab.syntaxOverlay.SetSyntaxThemeID(e.editorSyntaxID)
+	}
+	if e.window != nil && e.window.Content() != nil {
+		e.window.Content().Refresh()
 	}
 }
 
