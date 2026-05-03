@@ -11,7 +11,7 @@ import (
 
 // Version is the current application version.
 // Bump this before each release following semver: MAJOR.MINOR.PATCH
-const Version = "0.1.9"
+const Version = "0.2.3"
 
 // AppName is the canonical application name used in titles and dialogs.
 const AppName = "WS7"

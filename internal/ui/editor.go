@@ -140,8 +140,9 @@ type editorTab struct {
 	lastKnownText string
 	undoing       bool
 
-	ruleMode bool
-	isBold   bool
+	ruleMode      bool
+	isBold        bool
+	tokenizedSave bool
 }
 
 type editorUI struct {
@@ -313,10 +314,39 @@ func (e *editorUI) bindActiveTab(tab *editorTab) {
 	e.cursorRow = tab.cursorRow
 	e.cursorCol = tab.cursorCol
 	e.topLine = tab.topLine
+	e.saveTokenized = tab.tokenizedSave
+	e.syncTokenizedMenu()
 	e.updateBlockIndicator()
 	e.updateInternalClipboardIndicator()
 	e.updateTitle()
 	e.syncLineNumbers()
+}
+
+func (e *editorUI) syncTokenizedMenu() {
+	if e.styleTokenItem != nil {
+		e.styleTokenItem.Checked = e.saveTokenized
+	}
+	if e.window != nil && e.window.MainMenu() != nil {
+		e.window.MainMenu().Refresh()
+	}
+}
+
+func (e *editorUI) setTokenizedSaveState(enabled bool, persist bool, showStatus bool) {
+	e.saveTokenized = enabled
+	if e.activeTab != nil {
+		e.activeTab.tokenizedSave = enabled
+	}
+	e.syncTokenizedMenu()
+	if persist && e.store != nil {
+		_ = e.store.SetSetting(context.Background(), settingEditorSaveTokenizedKey, strconv.FormatBool(enabled))
+	}
+	if showStatus && e.status != nil {
+		if enabled {
+			e.status.SetText("Tokenized save: on")
+		} else {
+			e.status.SetText("Tokenized save: off")
+		}
+	}
 }
 
 func normalizePath(path string) string {
@@ -640,6 +670,7 @@ func (e *editorUI) newEditorTab(fileType newFileType) *editorTab {
 		blockTag:      widget.NewLabel(""),
 		clipTag:       widget.NewLabel(""),
 		name:          name,
+		tokenizedSave: e.saveTokenized,
 	}
 	tab.blockTag.TextStyle = fyne.TextStyle{Bold: true}
 	tab.clipTag.TextStyle = fyne.TextStyle{Bold: true}
@@ -785,6 +816,11 @@ func (e *editorUI) showEditorForType(path string, initialType *newFileType) {
 		dialog.ShowError(err, e.window)
 		return
 	}
+	decodedText, isTokenized, decodeErr := msxtoken.DecodeProgramText(data)
+	if decodeErr != nil {
+		dialog.ShowError(fmt.Errorf("failed to decode MSX BASIC file: %w", decodeErr), e.window)
+		return
+	}
 	if e.entry == nil && e.tabs != nil {
 		if selected := e.tabs.Selected(); selected != nil {
 			e.bindActiveTab(e.tabState[selected])
@@ -798,9 +834,9 @@ func (e *editorUI) showEditorForType(path string, initialType *newFileType) {
 	if e.activeTab != nil {
 		e.activeTab.undoing = true
 	}
-	e.entry.SetText(string(data))
+	e.entry.SetText(decodedText)
 	if e.activeTab != nil {
-		e.activeTab.lastKnownText = string(data)
+		e.activeTab.lastKnownText = decodedText
 		e.activeTab.undoStack = nil
 		e.activeTab.undoing = false
 	}
@@ -817,6 +853,7 @@ func (e *editorUI) showEditorForType(path string, initialType *newFileType) {
 	e.syncLineNumbers()
 	if e.activeTab != nil {
 		e.activeTab.filePath = path
+		e.activeTab.tokenizedSave = isTokenized
 		e.activeTab.dirty = false
 		e.activeTab.cursorRow = 0
 		e.activeTab.cursorCol = 0
@@ -824,6 +861,7 @@ func (e *editorUI) showEditorForType(path string, initialType *newFileType) {
 		e.refreshTabTitle(e.activeTab)
 		e.recordProgramSnapshot(e.activeTab, nil)
 	}
+	e.setTokenizedSaveState(isTokenized, false, false)
 	if e.store != nil {
 		_ = e.store.TouchRecentFile(context.Background(), path)
 		_ = e.store.SetSetting(context.Background(), "last_file", path)
@@ -1384,8 +1422,8 @@ func (e *editorUI) makeOpeningFileMenu() *fyne.Menu {
 		fyne.NewMenuItem("Open Document...          D", func() { e.cmdOpenDocument() }),
 		fyne.NewMenuItem("Open Nondocument...       N", func() { e.cmdOpenNondocument() }),
 		fyne.NewMenuItemSeparator(),
-		fyne.NewMenuItem("Print...                  P", func() { e.cmdNotImplemented("Print") }),
-		fyne.NewMenuItem("Print from keyboard...    K", func() { e.cmdNotImplemented("Print from keyboard") }),
+		fyne.NewMenuItem("Print... [NI]             P", func() { e.cmdNotImplemented("Print") }),
+		fyne.NewMenuItem("Print from keyboard... [NI] K", func() { e.cmdNotImplemented("Print from keyboard") }),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Copy...                   O", func() { e.cmdFileCopy() }),
 		fyne.NewMenuItem("Delete...                 Y", func() { e.cmdFileDelete() }),
@@ -1465,13 +1503,13 @@ func (e *editorUI) makeOpeningMenu() *fyne.MainMenu {
 	fileMenu := e.makeOpeningFileMenu()
 	macrosItem := fyne.NewMenuItem("Macros", nil)
 	macrosItem.ChildMenu = fyne.NewMenu("",
-		fyne.NewMenuItem("Play...                    MP", func() { e.cmdNotImplemented("Macro Play") }),
-		fyne.NewMenuItem("Record...                  MR", func() { e.cmdNotImplemented("Macro Record") }),
-		fyne.NewMenuItem("Edit/Create...             MD", func() { e.cmdNotImplemented("Macro Edit/Create") }),
-		fyne.NewMenuItem("Single Step...             MS", func() { e.cmdNotImplemented("Macro Single Step") }),
-		fyne.NewMenuItem("Copy...                    MO", func() { e.cmdNotImplemented("Macro Copy") }),
-		fyne.NewMenuItem("Delete...                  MY", func() { e.cmdNotImplemented("Macro Delete") }),
-		fyne.NewMenuItem("Rename...                  ME", func() { e.cmdNotImplemented("Macro Rename") }),
+		fyne.NewMenuItem("Play... [NI]               MP", func() { e.cmdNotImplemented("Macro Play") }),
+		fyne.NewMenuItem("Record... [NI]             MR", func() { e.cmdNotImplemented("Macro Record") }),
+		fyne.NewMenuItem("Edit/Create... [NI]        MD", func() { e.cmdNotImplemented("Macro Edit/Create") }),
+		fyne.NewMenuItem("Single Step... [NI]        MS", func() { e.cmdNotImplemented("Macro Single Step") }),
+		fyne.NewMenuItem("Copy... [NI]               MO", func() { e.cmdNotImplemented("Macro Copy") }),
+		fyne.NewMenuItem("Delete... [NI]             MY", func() { e.cmdNotImplemented("Macro Delete") }),
+		fyne.NewMenuItem("Rename... [NI]             ME", func() { e.cmdNotImplemented("Macro Rename") }),
 	)
 
 	utilitiesMenu := fyne.NewMenu("Utilities",
@@ -1481,11 +1519,11 @@ func (e *editorUI) makeOpeningMenu() *fyne.MainMenu {
 	)
 
 	additionalMenu := fyne.NewMenu("Additional",
-		fyne.NewMenuItem("Character Editor...        AC", func() { e.cmdNotImplemented("Character Editor") }),
-		fyne.NewMenuItem("Hexa Editor...             AH", func() { e.cmdNotImplemented("Hexa Editor") }),
-		fyne.NewMenuItem("Sprite Editor...           AS", func() { e.cmdNotImplemented("Sprite Editor") }),
-		fyne.NewMenuItem("Graphos...                 AG", func() { e.cmdNotImplemented("Graphos") }),
-		fyne.NewMenuItem("Noise Editor...            AN", func() { e.cmdNotImplemented("Noise Editor") }),
+		fyne.NewMenuItem("Character Editor... [NI]   AC", func() { e.cmdNotImplemented("Character Editor") }),
+		fyne.NewMenuItem("Hexa Editor... [NI]        AH", func() { e.cmdNotImplemented("Hexa Editor") }),
+		fyne.NewMenuItem("Sprite Editor... [NI]      AS", func() { e.cmdNotImplemented("Sprite Editor") }),
+		fyne.NewMenuItem("Graphos... [NI]            AG", func() { e.cmdNotImplemented("Graphos") }),
+		fyne.NewMenuItem("Noise Editor... [NI]       AN", func() { e.cmdNotImplemented("Noise Editor") }),
 	)
 
 	helpMenu := fyne.NewMenu("Help",
@@ -1520,6 +1558,16 @@ func (e *editorUI) makeEditorMenu() *fyne.MainMenu {
 		tokenizedItem,
 		convertCaseItem,
 	)
+	runOpenMSXItem := fyne.NewMenuItem("Execute on openMSX [NI]", func() { e.cmdNotImplemented("Execute on openMSX") })
+	runMakeDiskItem := fyne.NewMenuItem("Make a Disk [NI]", func() { e.cmdNotImplemented("Make a Disk") })
+	runBadigItem := fyne.NewMenuItem("Transpile on BADIG [NI]", func() { e.cmdNotImplemented("Transpile on BADIG") })
+	runMSXBas2RomItem := fyne.NewMenuItem("Compile on msxbas2rom [NI]", func() { e.cmdNotImplemented("Compile on msxbas2rom") })
+	runMenu := fyne.NewMenu("Run",
+		runOpenMSXItem,
+		runMakeDiskItem,
+		runBadigItem,
+		runMSXBas2RomItem,
+	)
 	utilitiesMenu := fyne.NewMenu("Utilities",
 		fyne.NewMenuItem("RULE                       Ctrl+Q,R  ESC to exit", func() { e.cmdRule() }),
 		fyne.NewMenuItem("Calculator                 Ctrl+Q,M", func() { e.execute(input.CmdCalculator) }),
@@ -1552,7 +1600,7 @@ func (e *editorUI) makeEditorMenu() *fyne.MainMenu {
 		openMSXHelpItem,
 	)
 
-	return fyne.NewMainMenu(fileMenu, editMenu, insertMenu, styleMenu, utilitiesMenu, helpMenu)
+	return fyne.NewMainMenu(fileMenu, editMenu, insertMenu, styleMenu, runMenu, utilitiesMenu, helpMenu)
 }
 
 func (e *editorUI) setRuleMode(tab *editorTab, enabled bool) {
@@ -1594,23 +1642,7 @@ func (e *editorUI) cmdRule() {
 }
 
 func (e *editorUI) cmdToggleTokenizedSave() {
-	e.saveTokenized = !e.saveTokenized
-	if e.styleTokenItem != nil {
-		e.styleTokenItem.Checked = e.saveTokenized
-	}
-	if e.store != nil {
-		_ = e.store.SetSetting(context.Background(), settingEditorSaveTokenizedKey, strconv.FormatBool(e.saveTokenized))
-	}
-	if e.window != nil && e.window.MainMenu() != nil {
-		e.window.MainMenu().Refresh()
-	}
-	if e.status != nil {
-		if e.saveTokenized {
-			e.status.SetText("Tokenized save: on")
-		} else {
-			e.status.SetText("Tokenized save: off")
-		}
-	}
+	e.setTokenizedSaveState(!e.saveTokenized, true, true)
 }
 
 func (e *editorUI) cmdCalculator() {
@@ -1774,17 +1806,17 @@ func (e *editorUI) makeEditorEditMenu() *fyne.Menu {
 	// ── Go to Other submenu ───────────────────────────────────────────────────
 	goToOtherItem := fyne.NewMenuItem("Go to Other", nil)
 	goToOtherItem.ChildMenu = fyne.NewMenu("",
-		fyne.NewMenuItem("Font Tag                      Ctrl+Q,=", func() { e.execute(input.CmdGoToFontTag) }),
-		fyne.NewMenuItem("Style Tag                     Ctrl+Q,<", func() { e.execute(input.CmdGoToStyleTag) }),
-		fyne.NewMenuItem("Note                          Ctrl+Q,N,G", func() { e.execute(input.CmdGoToNote) }),
-		fyne.NewMenuItem("Previous Position             Ctrl+Q,P", func() { e.execute(input.CmdGoPrevPosition) }),
-		fyne.NewMenuItem("Last Find/Replace             Ctrl+Q,V", func() { e.execute(input.CmdGoLastFindReplace) }),
-		fyne.NewMenuItem("Beginning of Block            Ctrl+Q,B", func() { e.execute(input.CmdGoBlockBegin) }),
-		fyne.NewMenuItem("End of Block                  Ctrl+Q,K", func() { e.execute(input.CmdGoBlockEnd) }),
+		fyne.NewMenuItem("Font Tag [NI]                 Ctrl+Q,=", func() { e.execute(input.CmdGoToFontTag) }),
+		fyne.NewMenuItem("Style Tag [NI]                Ctrl+Q,<", func() { e.execute(input.CmdGoToStyleTag) }),
+		fyne.NewMenuItem("Note [NI]                     Ctrl+Q,N,G", func() { e.execute(input.CmdGoToNote) }),
+		fyne.NewMenuItem("Previous Position [NI]        Ctrl+Q,P", func() { e.execute(input.CmdGoPrevPosition) }),
+		fyne.NewMenuItem("Last Find/Replace [NI]        Ctrl+Q,V", func() { e.execute(input.CmdGoLastFindReplace) }),
+		fyne.NewMenuItem("Beginning of Block [NI]       Ctrl+Q,B", func() { e.execute(input.CmdGoBlockBegin) }),
+		fyne.NewMenuItem("End of Block [NI]             Ctrl+Q,K", func() { e.execute(input.CmdGoBlockEnd) }),
 		fyne.NewMenuItem("Document Beginning            Ctrl+O,L", func() { e.execute(input.CmdGoDocBegin) }),
 		fyne.NewMenuItem("Document End                  Ctrl+Q,C", func() { e.execute(input.CmdGoDocEnd) }),
-		fyne.NewMenuItem("Scroll Continuously Up        Ctrl+Q,W", func() { e.execute(input.CmdScrollContUp) }),
-		fyne.NewMenuItem("Scroll Continuously Down      Ctrl+Q,Z", func() { e.execute(input.CmdScrollContDown) }),
+		fyne.NewMenuItem("Scroll Continuously Up [NI]   Ctrl+Q,W", func() { e.execute(input.CmdScrollContUp) }),
+		fyne.NewMenuItem("Scroll Continuously Down [NI] Ctrl+Q,Z", func() { e.execute(input.CmdScrollContDown) }),
 	)
 
 	// ── Set Marker submenu ────────────────────────────────────────────────────
@@ -1801,18 +1833,18 @@ func (e *editorUI) makeEditorEditMenu() *fyne.Menu {
 	// ── Note Options submenu ──────────────────────────────────────────────────
 	noteOptionsItem := fyne.NewMenuItem("Note Options", nil)
 	noteOptionsItem.ChildMenu = fyne.NewMenu("",
-		fyne.NewMenuItem("Starting Number for Note...", func() { e.cmdNotImplemented("Starting Number for Note") }),
-		fyne.NewMenuItem("Convert Note...               Ctrl+O,N,V", func() { e.execute(input.CmdConvertNote) }),
-		fyne.NewMenuItem("Convert at Print...           .cv", func() { e.cmdNotImplemented("Convert at Print (.cv)") }),
-		fyne.NewMenuItem("Endnote Location              .pe", func() { e.cmdNotImplemented("Endnote Location (.pe)") }),
+		fyne.NewMenuItem("Starting Number for Note... [NI]", func() { e.cmdNotImplemented("Starting Number for Note") }),
+		fyne.NewMenuItem("Convert Note... [NI]          Ctrl+O,N,V", func() { e.execute(input.CmdConvertNote) }),
+		fyne.NewMenuItem("Convert at Print... [NI]      .cv", func() { e.cmdNotImplemented("Convert at Print (.cv)") }),
+		fyne.NewMenuItem("Endnote Location [NI]         .pe", func() { e.cmdNotImplemented("Endnote Location (.pe)") }),
 	)
 
 	// ── Edit Settings submenu ─────────────────────────────────────────────────
 	editSettingsItem := fyne.NewMenuItem("Edit Settings", nil)
 	editSettingsItem.ChildMenu = fyne.NewMenu("",
-		fyne.NewMenuItem("Column Block Mode             Ctrl+K,N", func() { e.execute(input.CmdColumnBlockMode) }),
-		fyne.NewMenuItem("Column Replace Mode           Ctrl+K,I", func() { e.execute(input.CmdColumnReplaceMode) }),
-		fyne.NewMenuItem("Auto Align                    Ctrl+O,A", func() { e.execute(input.CmdAutoAlign) }),
+		fyne.NewMenuItem("Column Block Mode [NI]        Ctrl+K,N", func() { e.execute(input.CmdColumnBlockMode) }),
+		fyne.NewMenuItem("Column Replace Mode [NI]      Ctrl+K,I", func() { e.execute(input.CmdColumnReplaceMode) }),
+		fyne.NewMenuItem("Auto Align [NI]               Ctrl+O,A", func() { e.execute(input.CmdAutoAlign) }),
 		fyne.NewMenuItem("Closes Dialog                 Ctrl+O,[ENTER]", func() { e.execute(input.CmdCloseDialog) }),
 	)
 
@@ -1832,7 +1864,7 @@ func (e *editorUI) makeEditorEditMenu() *fyne.Menu {
 		moveItem,
 		copyItem,
 		deleteItem,
-		fyne.NewMenuItem("Mark Previous Block           Ctrl+K,U", func() { e.execute(input.CmdMarkPreviousBlock) }),
+		fyne.NewMenuItem("Mark Previous Block [NI]      Ctrl+K,U", func() { e.execute(input.CmdMarkPreviousBlock) }),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Find...                       Ctrl+Q,F", func() { e.cmdFind() }),
 		fyne.NewMenuItem("Find and Replace...           Ctrl+Q,A", func() { e.cmdFindReplace() }),
@@ -1843,7 +1875,7 @@ func (e *editorUI) makeEditorEditMenu() *fyne.Menu {
 		goToOtherItem,
 		setMarkerItem,
 		fyne.NewMenuItemSeparator(),
-		fyne.NewMenuItem("Edit Note                     Ctrl+O,N,D", func() { e.execute(input.CmdEditNote) }),
+		fyne.NewMenuItem("Edit Note [NI]                Ctrl+O,N,D", func() { e.execute(input.CmdEditNote) }),
 		noteOptionsItem,
 		fyne.NewMenuItemSeparator(),
 		editSettingsItem,

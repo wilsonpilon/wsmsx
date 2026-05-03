@@ -20,6 +20,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 - (none yet)
 
+## [0.2.3] - 2026-05-02
+
+### Changed
+
+- Bumped app version to `0.2.3` in `internal/version/version.go`.
+- Updated documentation (`README.md`, `OUTLINE.md`, `MANUAL.md`) to version `0.2.3`.
+
 ## [0.2.1] - 2026-05-02
 
 ### Added
@@ -196,8 +203,8 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 To bump the version, edit `internal/version/version.go`:
 
 ```go
-const Version = "0.1.8"  // example patch bump
+const Version = "0.2.3"  // example patch bump
 ```
 
-Then add a new entry at the top of this file under `## [0.1.8] - YYYY-MM-DD`.
+Then add a new entry at the top of this file under `## [0.2.3] - YYYY-MM-DD`.
 

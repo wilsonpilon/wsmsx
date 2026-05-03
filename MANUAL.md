@@ -2,7 +2,7 @@
 
 Usage guide for the WS7 editor (Go + Fyne), with commands inspired by WordStar.
 
-Current documented version: `0.2.1`.
+Current documented version: `0.2.3`.
 
 ## 1) How to Start the Program
 

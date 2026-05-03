@@ -140,12 +140,12 @@ func TestBMarksBlockWhenRuleActive(t *testing.T) {
 func TestEditorUtilitiesMenuContainsRule(t *testing.T) {
 	ui := &editorUI{}
 	menu := ui.makeEditorMenu()
-	if menu == nil || len(menu.Items) < 5 {
+	if menu == nil || len(menu.Items) < 6 {
 		t.Fatalf("expected editor main menu with Utilities")
 	}
-	utilities := menu.Items[4]
+	utilities := menu.Items[5]
 	if utilities == nil || utilities.Label != "Utilities" {
-		t.Fatalf("expected Utilities menu at top-level index 4")
+		t.Fatalf("expected Utilities menu at top-level index 5")
 	}
 	if len(utilities.Items) < 1 {
 		t.Fatalf("expected Utilities items")
@@ -158,18 +158,122 @@ func TestEditorUtilitiesMenuContainsRule(t *testing.T) {
 func TestEditorUtilitiesMenuContainsCalculator(t *testing.T) {
 	ui := &editorUI{}
 	menu := ui.makeEditorMenu()
-	if menu == nil || len(menu.Items) < 5 {
+	if menu == nil || len(menu.Items) < 6 {
 		t.Fatalf("expected editor main menu with Utilities")
 	}
-	utilities := menu.Items[4]
+	utilities := menu.Items[5]
 	if utilities == nil || utilities.Label != "Utilities" {
-		t.Fatalf("expected Utilities menu at top-level index 4")
+		t.Fatalf("expected Utilities menu at top-level index 5")
 	}
 	if len(utilities.Items) < 2 {
 		t.Fatalf("expected Utilities to include calculator item")
 	}
 	if got := utilities.Items[1].Label; got != "Calculator                 Ctrl+Q,M" {
 		t.Fatalf("second Utilities item = %q, want Calculator item", got)
+	}
+}
+
+func TestEditorRunMenuContainsExpectedItems(t *testing.T) {
+	ui := &editorUI{}
+	menu := ui.makeEditorMenu()
+	if menu == nil || len(menu.Items) < 5 {
+		t.Fatalf("expected editor main menu with Run")
+	}
+	runMenu := menu.Items[4]
+	if runMenu == nil || runMenu.Label != "Run" {
+		t.Fatalf("expected Run menu at top-level index 4")
+	}
+	if len(runMenu.Items) < 4 {
+		t.Fatalf("expected Run menu items")
+	}
+	if got := runMenu.Items[0].Label; got != "Execute on openMSX [NI]" {
+		t.Fatalf("first Run item = %q, want Execute on openMSX [NI]", got)
+	}
+	if got := runMenu.Items[1].Label; got != "Make a Disk [NI]" {
+		t.Fatalf("second Run item = %q, want Make a Disk [NI]", got)
+	}
+	if got := runMenu.Items[2].Label; got != "Transpile on BADIG [NI]" {
+		t.Fatalf("third Run item = %q, want Transpile on BADIG [NI]", got)
+	}
+	if got := runMenu.Items[3].Label; got != "Compile on msxbas2rom [NI]" {
+		t.Fatalf("fourth Run item = %q, want Compile on msxbas2rom [NI]", got)
+	}
+	for i, item := range runMenu.Items {
+		if item.Disabled {
+			t.Fatalf("expected Run item %d to remain visible/enabled for the [NI] placeholder dialog", i)
+		}
+	}
+}
+
+func TestOpeningMenuPlaceholderItemsShowNI(t *testing.T) {
+	ui := &editorUI{}
+	menu := ui.makeOpeningMenu()
+	if menu == nil || len(menu.Items) < 3 {
+		t.Fatalf("expected opening main menu")
+	}
+	fileMenu := menu.Items[0]
+	if fileMenu == nil || fileMenu.Label != "File" {
+		t.Fatalf("expected File menu at top-level index 0")
+	}
+	if got := fileMenu.Items[4].Label; got != "Print... [NI]             P" {
+		t.Fatalf("opening File print item = %q, want Print... [NI]             P", got)
+	}
+	if got := fileMenu.Items[5].Label; got != "Print from keyboard... [NI] K" {
+		t.Fatalf("opening File print-from-keyboard item = %q, want Print from keyboard... [NI] K", got)
+	}
+	utilities := menu.Items[1]
+	if utilities == nil || utilities.Label != "Utilities" {
+		t.Fatalf("expected Utilities menu at top-level index 1")
+	}
+	macros := utilities.Items[0]
+	if macros == nil || macros.Label != "Macros" || macros.ChildMenu == nil {
+		t.Fatalf("expected Macros submenu")
+	}
+	if got := macros.ChildMenu.Items[0].Label; got != "Play... [NI]               MP" {
+		t.Fatalf("macros first item = %q, want Play... [NI]               MP", got)
+	}
+	additional := menu.Items[2]
+	if additional == nil || additional.Label != "Additional" {
+		t.Fatalf("expected Additional menu at top-level index 2")
+	}
+	if got := additional.Items[0].Label; got != "Character Editor... [NI]   AC" {
+		t.Fatalf("additional first item = %q, want Character Editor... [NI]   AC", got)
+	}
+}
+
+func TestEditorEditMenuPlaceholderItemsShowNI(t *testing.T) {
+	ui := &editorUI{}
+	menu := ui.makeEditorMenu()
+	if menu == nil || len(menu.Items) < 2 {
+		t.Fatalf("expected editor main menu with Edit")
+	}
+	edit := menu.Items[1]
+	if edit == nil || edit.Label != "Edit" {
+		t.Fatalf("expected Edit menu at top-level index 1")
+	}
+	if got := edit.Items[9].Label; got != "Mark Previous Block [NI]      Ctrl+K,U" {
+		t.Fatalf("mark previous block item = %q, want Mark Previous Block [NI]      Ctrl+K,U", got)
+	}
+	goToOther := edit.Items[17]
+	if goToOther == nil || goToOther.Label != "Go to Other" || goToOther.ChildMenu == nil {
+		t.Fatalf("expected Go to Other submenu")
+	}
+	if got := goToOther.ChildMenu.Items[0].Label; got != "Font Tag [NI]                 Ctrl+Q,=" {
+		t.Fatalf("go to other first item = %q, want Font Tag [NI]                 Ctrl+Q,=", got)
+	}
+	noteOptions := edit.Items[21]
+	if noteOptions == nil || noteOptions.Label != "Note Options" || noteOptions.ChildMenu == nil {
+		t.Fatalf("expected Note Options submenu")
+	}
+	if got := noteOptions.ChildMenu.Items[0].Label; got != "Starting Number for Note... [NI]" {
+		t.Fatalf("note options first item = %q, want Starting Number for Note... [NI]", got)
+	}
+	editSettings := edit.Items[23]
+	if editSettings == nil || editSettings.Label != "Edit Settings" || editSettings.ChildMenu == nil {
+		t.Fatalf("expected Edit Settings submenu")
+	}
+	if got := editSettings.ChildMenu.Items[0].Label; got != "Column Block Mode [NI]        Ctrl+K,N" {
+		t.Fatalf("edit settings first item = %q, want Column Block Mode [NI]        Ctrl+K,N", got)
 	}
 }
 
@@ -221,6 +325,23 @@ func TestEditorStyleMenuTokenizedItemCheckedWhenEnabled(t *testing.T) {
 	}
 	if !style.Items[2].Checked {
 		t.Fatal("expected Tokenized menu item to be checked")
+	}
+}
+
+func TestBindActiveTabSyncsTokenizedSaveState(t *testing.T) {
+	tab := makeSplitViewTestTab("A")
+	tab.tokenizedSave = true
+	ui := &editorUI{
+		inEditor:  true,
+		status:    widget.NewLabel(""),
+		tabState:  map[*container.TabItem]*editorTab{tab.item: tab},
+		activeTab: tab,
+		entry:     tab.entry,
+	}
+	ui.bindTabEntry(tab)
+	ui.bindActiveTab(tab)
+	if !ui.saveTokenized {
+		t.Fatal("expected saveTokenized=true when active tab is tokenized")
 	}
 }
 
