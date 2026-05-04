@@ -30,11 +30,13 @@ var (
 // lineNumbersWidget renders a column of line numbers aligned with the editor.
 // Callers update it via Update(totalLines, topLine, cursorLine) whenever the
 // cursor moves or the text changes.
+// For pixel-perfect alignment during partial scrolls, use UpdateWithOffset.
 type lineNumbersWidget struct {
 	widget.BaseWidget
-	lineCount  int // total lines in document
-	topLine    int // 0-based first visible line
-	cursorLine int // 0-based cursor line (highlighted)
+	lineCount  int     // total lines in document
+	topLine    int     // 0-based first visible line
+	topOffset  float32 // pixel offset within the first visible line
+	cursorLine int     // 0-based cursor line (highlighted)
 	bold       bool
 	italic     bool
 }
@@ -47,11 +49,21 @@ func newLineNumbersWidget() *lineNumbersWidget {
 
 // Update refreshes the widget with new state; redraws only when anything changed.
 func (w *lineNumbersWidget) Update(lineCount, topLine, cursorLine int) {
-	if w.lineCount == lineCount && w.topLine == topLine && w.cursorLine == cursorLine {
+	w.UpdateWithOffset(lineCount, topLine, 0, cursorLine)
+}
+
+// UpdateWithOffset refreshes the widget with viewport state including scroll offset.
+// topOffset is the pixel offset within the first visible line.
+func (w *lineNumbersWidget) UpdateWithOffset(lineCount, topLine int, topOffset float32, cursorLine int) {
+	if topOffset < 0 {
+		topOffset = 0
+	}
+	if w.lineCount == lineCount && w.topLine == topLine && w.topOffset == topOffset && w.cursorLine == cursorLine {
 		return
 	}
 	w.lineCount = lineCount
 	w.topLine = topLine
+	w.topOffset = topOffset
 	w.cursorLine = cursorLine
 	w.Refresh()
 }
@@ -111,12 +123,11 @@ func (r *lineNumbersRenderer) textStyle() fyne.TextStyle {
 	return fyne.TextStyle{Monospace: true, Bold: r.w.bold, Italic: r.w.italic}
 }
 
-// lh returns the height of one line (matches the ruler row height).
-// Always measures with non-bold monospace — Source Code Pro Regular and Bold
-// share identical advance widths, so the measurement is the same.
+// lh returns the height of one line (matches editor/syntax calculations).
+// We measure regular monospace to keep behavior stable across themes.
 func (r *lineNumbersRenderer) lh() float32 {
 	sz := fyne.MeasureText("M", theme.TextSize(), fyne.TextStyle{Monospace: true})
-	return sz.Height + 2
+	return sz.Height
 }
 
 // gutterWidth returns the width of the gutter in pixels.
@@ -128,6 +139,7 @@ func (r *lineNumbersRenderer) gutterWidth() float32 {
 
 func (r *lineNumbersRenderer) Layout(size fyne.Size) {
 	lh := r.lh()
+	offsetY := -r.w.topOffset
 
 	// Background fills entire gutter
 	r.bg.Move(fyne.NewPos(0, 0))
@@ -137,49 +149,74 @@ func (r *lineNumbersRenderer) Layout(size fyne.Size) {
 	r.sep.Move(fyne.NewPos(size.Width-1, 0))
 	r.sep.Resize(fyne.NewSize(1, size.Height))
 
-	// Cursor-line background highlight
+	// Cursor-line background highlight: position and height adjusted by pixel offset
 	curVisIdx := r.w.cursorLine - r.w.topLine
 	if curVisIdx >= 0 && curVisIdx < lineNumMaxVisible {
-		r.cursorBg.Move(fyne.NewPos(0, float32(curVisIdx)*lh))
-		r.cursorBg.Resize(fyne.NewSize(size.Width, lh))
-		r.cursorBg.Show()
+		cursorY := float32(curVisIdx)*lh + offsetY
+
+		// Clamp to visible area
+		if cursorY+lh > 0 && cursorY < size.Height {
+			if cursorY < 0 {
+				// Cursor is partially visible at top: show only the visible part
+				visibleHeight := lh + cursorY
+				r.cursorBg.Move(fyne.NewPos(0, 0))
+				r.cursorBg.Resize(fyne.NewSize(size.Width, visibleHeight))
+			} else if cursorY+lh > size.Height {
+				// Cursor is partially visible at bottom: show only the visible part
+				visibleHeight := size.Height - cursorY
+				r.cursorBg.Move(fyne.NewPos(0, cursorY))
+				r.cursorBg.Resize(fyne.NewSize(size.Width, visibleHeight))
+			} else {
+				// Cursor is fully visible
+				r.cursorBg.Move(fyne.NewPos(0, cursorY))
+				r.cursorBg.Resize(fyne.NewSize(size.Width, lh))
+			}
+			r.cursorBg.Show()
+		} else {
+			r.cursorBg.Hide()
+		}
 	} else {
 		r.cursorBg.Hide()
 	}
 
-	r.updateRows(size, lh)
+	r.updateRows(size, lh, offsetY)
 }
 
-func (r *lineNumbersRenderer) updateRows(size fyne.Size, lh float32) {
+func (r *lineNumbersRenderer) updateRows(size fyne.Size, lh, offsetY float32) {
 	ts := theme.TextSize()
 	style := r.textStyle()
 
-	// Line number labels
+	// Line number labels, positioned with pixel scroll offset
 	for i, t := range r.texts {
 		lineNum := r.w.topLine + i + 1 // 1-based for display
-		y := float32(i) * lh
+		y := float32(i)*lh + offsetY
 
-		t.Move(fyne.NewPos(0, y))
-		t.Resize(fyne.NewSize(size.Width-2, lh))
-		t.TextSize = ts
-		t.TextStyle = style
+		// Only position/show if within visible bounds
+		if y+lh > 0 && y < size.Height {
+			t.Move(fyne.NewPos(0, y))
+			t.Resize(fyne.NewSize(size.Width-2, lh))
+			t.TextSize = ts
+			t.TextStyle = style
 
-		if lineNum < 1 || lineNum > r.w.lineCount {
-			t.Text = ""
-			t.Hide()
-			continue
-		}
+			if lineNum < 1 || lineNum > r.w.lineCount {
+				t.Text = ""
+				t.Hide()
+				continue
+			}
 
-		t.Text = fmt.Sprintf("%*d ", lineNumCharWidth, lineNum)
+			t.Text = fmt.Sprintf("%*d ", lineNumCharWidth, lineNum)
 
-		isCursor := (r.w.topLine + i) == r.w.cursorLine
-		if isCursor {
-			t.Color = lineNumCursorColor
+			isCursor := (r.w.topLine + i) == r.w.cursorLine
+			if isCursor {
+				t.Color = lineNumCursorColor
+			} else {
+				t.Color = lineNumNormalColor
+			}
+			t.Show()
+			t.Refresh()
 		} else {
-			t.Color = lineNumNormalColor
+			t.Hide()
 		}
-		t.Show()
-		t.Refresh()
 	}
 }
 

@@ -18,7 +18,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-- (none yet)
+- Rolled back the experimental local CHM help viewer integration and removed related menu/documentation references from the WS7 UI surface.
 
 ## [0.2.7] - 2026-05-03
 

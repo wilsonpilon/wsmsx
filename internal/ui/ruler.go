@@ -275,6 +275,7 @@ type rulerWidget struct {
 	widget.BaseWidget
 	cursorCol int // 0-based
 	cursorRow int // 0-based (for Ln: display)
+	viewportX float32
 	bold      bool
 	italic    bool
 }
@@ -297,6 +298,18 @@ func (r *rulerWidget) UpdateCursor(row, col int) {
 	}
 	r.cursorRow = row
 	r.cursorCol = col
+	r.Refresh()
+}
+
+// SetViewportX updates the horizontal scroll offset in pixels.
+func (r *rulerWidget) SetViewportX(x float32) {
+	if x < 0 {
+		x = 0
+	}
+	if r.viewportX == x {
+		return
+	}
+	r.viewportX = x
 	r.Refresh()
 }
 
@@ -407,6 +420,10 @@ func (r *rulerRenderer) charSize() (w, h float32) {
 	return sz.Width, sz.Height
 }
 
+func (r *rulerRenderer) leadingInset() float32 {
+	return theme.Size(theme.SizeNameInnerPadding)
+}
+
 func (r *rulerRenderer) updateText() {
 	n := rulerMaxCols
 
@@ -458,16 +475,24 @@ func (r *rulerRenderer) updateText() {
 func (r *rulerRenderer) Layout(size fyne.Size) {
 	cw, ch := r.charSize()
 	lh := ch + 2 // a touch of padding per row
+	x0 := r.leadingInset() - r.w.viewportX
+	contentW := size.Width
+	if x0 > 0 {
+		contentW = size.Width - x0
+		if contentW < 0 {
+			contentW = 0
+		}
+	}
 
 	// Position the three text rows
-	r.rowDecades.Move(fyne.NewPos(0, 0))
-	r.rowDecades.Resize(fyne.NewSize(size.Width, lh))
+	r.rowDecades.Move(fyne.NewPos(x0, 0))
+	r.rowDecades.Resize(fyne.NewSize(contentW, lh))
 
-	r.rowUnits.Move(fyne.NewPos(0, lh))
-	r.rowUnits.Resize(fyne.NewSize(size.Width, lh))
+	r.rowUnits.Move(fyne.NewPos(x0, lh))
+	r.rowUnits.Resize(fyne.NewSize(contentW, lh))
 
-	r.rowCursor.Move(fyne.NewPos(0, lh*2))
-	r.rowCursor.Resize(fyne.NewSize(size.Width, lh))
+	r.rowCursor.Move(fyne.NewPos(x0, lh*2))
+	r.rowCursor.Resize(fyne.NewSize(contentW, lh))
 
 	totalH := lh * 3
 
@@ -477,7 +502,7 @@ func (r *rulerRenderer) Layout(size fyne.Size) {
 		if isMarkCol(col) {
 			continue
 		}
-		x := float32(col) * cw
+		x := x0 + float32(col)*cw
 		r.decadeRects[decadeIndex].Move(fyne.NewPos(x, 0))
 		r.decadeRects[decadeIndex].Resize(fyne.NewSize(cw, totalH))
 		decadeIndex++
@@ -485,13 +510,13 @@ func (r *rulerRenderer) Layout(size fyne.Size) {
 
 	// Position mark-column highlight rectangles
 	for i, col := range rulerMarkCols {
-		x := float32(col) * cw
+		x := x0 + float32(col)*cw
 		r.markRects[i].Move(fyne.NewPos(x, 0))
 		r.markRects[i].Resize(fyne.NewSize(cw, totalH))
 	}
 
 	// Position cursor column highlight rectangle
-	curX := float32(r.w.cursorCol) * cw
+	curX := x0 + float32(r.w.cursorCol)*cw
 	r.cursorRect.Move(fyne.NewPos(curX, 0))
 	r.cursorRect.Resize(fyne.NewSize(cw, totalH))
 }

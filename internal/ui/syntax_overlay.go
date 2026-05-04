@@ -16,13 +16,15 @@ const syntaxMaxVisibleLines = 180
 // syntaxOverlayWidget renders highlighted tokens over the hidden text entry.
 type syntaxOverlayWidget struct {
 	widget.BaseWidget
-	dialectID string
-	text      string
-	tokens    [][]syntax.Token
-	topLine   int
-	bold      bool
-	italic    bool
-	palette   syntaxPalette
+	dialectID  string
+	text       string
+	tokens     [][]syntax.Token
+	topLine    int
+	topOffset  float32
+	leftOffset float32
+	bold       bool
+	italic     bool
+	palette    syntaxPalette
 }
 
 func newSyntaxOverlayWidget(dialectID, syntaxThemeID string) *syntaxOverlayWidget {
@@ -48,13 +50,25 @@ func (w *syntaxOverlayWidget) SetText(text string) {
 }
 
 func (w *syntaxOverlayWidget) SetTopLine(topLine int) {
+	w.SetViewport(topLine, w.topOffset, w.leftOffset)
+}
+
+func (w *syntaxOverlayWidget) SetViewport(topLine int, topOffset, leftOffset float32) {
 	if topLine < 0 {
 		topLine = 0
 	}
-	if w.topLine == topLine {
+	if topOffset < 0 {
+		topOffset = 0
+	}
+	if leftOffset < 0 {
+		leftOffset = 0
+	}
+	if w.topLine == topLine && w.topOffset == topOffset && w.leftOffset == leftOffset {
 		return
 	}
 	w.topLine = topLine
+	w.topOffset = topOffset
+	w.leftOffset = leftOffset
 	w.Refresh()
 }
 
@@ -131,7 +145,11 @@ func (r *syntaxOverlayRenderer) lineHeight() float32 {
 	if sz.Height < 1 {
 		return 18
 	}
-	return sz.Height + 2
+	return sz.Height
+}
+
+func (r *syntaxOverlayRenderer) topInset() float32 {
+	return theme.Size(theme.SizeNameInnerPadding) - theme.Size(theme.SizeNameInputBorder)
 }
 
 func (r *syntaxOverlayRenderer) rebuild(size fyne.Size) {
@@ -141,7 +159,7 @@ func (r *syntaxOverlayRenderer) rebuild(size fyne.Size) {
 	if lineHeight <= 0 {
 		lineHeight = 18
 	}
-	visible := int(size.Height/lineHeight) + 2
+	visible := int((size.Height+r.w.topOffset)/lineHeight) + 2
 	if visible < 1 {
 		visible = 1
 	}
@@ -169,9 +187,10 @@ func (r *syntaxOverlayRenderer) rebuild(size fyne.Size) {
 		end = len(r.w.tokens)
 	}
 
-	y := float32(0)
+	y := r.topInset() - r.w.topOffset
+	baseX := theme.Size(theme.SizeNameInnerPadding) - r.w.leftOffset
 	for lineIdx := start; lineIdx < end; lineIdx++ {
-		x := float32(0)
+		x := baseX
 		lineTokens := r.w.tokens[lineIdx]
 		for _, tok := range lineTokens {
 			if tok.Value == "" {

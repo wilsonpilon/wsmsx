@@ -173,6 +173,50 @@ func TestEditorUtilitiesMenuContainsCalculator(t *testing.T) {
 	}
 }
 
+func TestEditorUtilitiesMenuContainsDSKToolsAsNIPlaceholders(t *testing.T) {
+	ui := &editorUI{}
+	menu := ui.makeEditorMenu()
+	if menu == nil || len(menu.Items) < 6 {
+		t.Fatalf("expected editor main menu with Utilities")
+	}
+	utilities := menu.Items[5]
+	if utilities == nil || utilities.Label != "Utilities" {
+		t.Fatalf("expected Utilities menu at top-level index 5")
+	}
+
+	var dskItem *fyne.MenuItem
+	for _, item := range utilities.Items {
+		if item == nil {
+			continue
+		}
+		if item.Label == "DSK" {
+			dskItem = item
+		}
+	}
+
+	if dskItem == nil {
+		t.Fatal("expected Utilities menu to include DSK submenu")
+	}
+	if dskItem.Disabled {
+		t.Fatal("expected DSK submenu to be enabled")
+	}
+	if dskItem.ChildMenu == nil {
+		t.Fatal("expected DSK submenu to include child menu")
+	}
+	if len(dskItem.ChildMenu.Items) != 2 {
+		t.Fatalf("expected DSK submenu to have 2 items, got %d", len(dskItem.ChildMenu.Items))
+	}
+	if got := dskItem.ChildMenu.Items[0].Label; got != "Make DSK..." {
+		t.Fatalf("first DSK item = %q, want Make DSK...", got)
+	}
+	if got := dskItem.ChildMenu.Items[1].Label; got != "Extract DSK..." {
+		t.Fatalf("second DSK item = %q, want Extract DSK...", got)
+	}
+	if dskItem.ChildMenu.Items[0].Disabled || dskItem.ChildMenu.Items[1].Disabled {
+		t.Fatal("expected DSK submenu items to be enabled placeholders")
+	}
+}
+
 func TestEditorRunMenuContainsExpectedItems(t *testing.T) {
 	ui := &editorUI{}
 	menu := ui.makeEditorMenu()

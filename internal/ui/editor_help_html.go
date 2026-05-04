@@ -14,6 +14,12 @@ import (
 // htmlToRichTextSegments converts raw HTML to Fyne RichText segments
 // for in-app rendering without any external browser.
 func htmlToRichTextSegments(rawHTML []byte, baseURL string) []widget.RichTextSegment {
+	return htmlToRichTextSegmentsWithHandler(rawHTML, baseURL, nil)
+}
+
+// htmlToRichTextSegmentsWithHandler converts raw HTML to Fyne RichText segments
+// and routes link taps to onLink when provided.
+func htmlToRichTextSegmentsWithHandler(rawHTML []byte, baseURL string, onLink func(string)) []widget.RichTextSegment {
 	doc, err := xhtml.Parse(bytes.NewReader(rawHTML))
 	if err != nil {
 		return []widget.RichTextSegment{
@@ -27,7 +33,7 @@ func htmlToRichTextSegments(rawHTML []byte, baseURL string) []widget.RichTextSeg
 	}
 
 	var out []widget.RichTextSegment
-	helpWalkBlock(&out, root, baseURL)
+	helpWalkBlock(&out, root, baseURL, onLink)
 	if len(out) == 0 {
 		out = append(out, &widget.TextSegment{Text: "No content found."})
 	}
@@ -78,7 +84,7 @@ func helpHasClass(n *xhtml.Node, cls string) bool {
 }
 
 // helpWalkBlock processes block-level HTML nodes into RichText segments.
-func helpWalkBlock(out *[]widget.RichTextSegment, n *xhtml.Node, baseURL string) {
+func helpWalkBlock(out *[]widget.RichTextSegment, n *xhtml.Node, baseURL string, onLink func(string)) {
 	if n == nil {
 		return
 	}
@@ -86,7 +92,7 @@ func helpWalkBlock(out *[]widget.RichTextSegment, n *xhtml.Node, baseURL string)
 	switch n.Type {
 	case xhtml.DocumentNode:
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			helpWalkBlock(out, c, baseURL)
+			helpWalkBlock(out, c, baseURL, onLink)
 		}
 
 	case xhtml.TextNode:
@@ -117,7 +123,7 @@ func helpWalkBlock(out *[]widget.RichTextSegment, n *xhtml.Node, baseURL string)
 		case "html", "body", "div", "section", "article", "main",
 			"header", "aside", "details", "summary", "figure", "figcaption":
 			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				helpWalkBlock(out, c, baseURL)
+				helpWalkBlock(out, c, baseURL, onLink)
 			}
 
 		// ── Headings ──────────────────────────────────────────────────
@@ -150,27 +156,27 @@ func helpWalkBlock(out *[]widget.RichTextSegment, n *xhtml.Node, baseURL string)
 
 		// ── Paragraph ─────────────────────────────────────────────────
 		case "p":
-			inline := helpBuildInline(n, baseURL)
+			inline := helpBuildInline(n, baseURL, onLink)
 			if len(inline) > 0 {
 				*out = append(*out, &widget.ParagraphSegment{Texts: inline})
 			}
 
 		// ── Unordered / ordered list ──────────────────────────────────
 		case "ul":
-			items := helpCollectListItems(n, baseURL)
+			items := helpCollectListItems(n, baseURL, onLink)
 			if len(items) > 0 {
 				*out = append(*out, &widget.ListSegment{Items: items})
 			}
 
 		case "ol":
-			items := helpCollectListItems(n, baseURL)
+			items := helpCollectListItems(n, baseURL, onLink)
 			if len(items) > 0 {
 				*out = append(*out, &widget.ListSegment{Items: items, Ordered: true})
 			}
 
 		// ── Definition list ───────────────────────────────────────────
 		case "dl":
-			helpWalkDL(out, n, baseURL)
+			helpWalkDL(out, n, baseURL, onLink)
 
 		// ── Pre-formatted / code block ────────────────────────────────
 		case "pre":
@@ -209,7 +215,7 @@ func helpWalkBlock(out *[]widget.RichTextSegment, n *xhtml.Node, baseURL string)
 
 		// ── Blockquote ────────────────────────────────────────────────
 		case "blockquote":
-			inline := helpBuildInline(n, baseURL)
+			inline := helpBuildInline(n, baseURL, onLink)
 			if len(inline) > 0 {
 				*out = append(*out, &widget.ParagraphSegment{Texts: inline})
 			}
@@ -217,21 +223,21 @@ func helpWalkBlock(out *[]widget.RichTextSegment, n *xhtml.Node, baseURL string)
 		// ── Anything else: try to walk children ───────────────────────
 		default:
 			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				helpWalkBlock(out, c, baseURL)
+				helpWalkBlock(out, c, baseURL, onLink)
 			}
 		}
 	}
 }
 
 // helpCollectListItems returns one TextSegment per <li>.
-func helpCollectListItems(ul *xhtml.Node, baseURL string) []widget.RichTextSegment {
+func helpCollectListItems(ul *xhtml.Node, baseURL string, onLink func(string)) []widget.RichTextSegment {
 	var items []widget.RichTextSegment
 	for c := ul.FirstChild; c != nil; c = c.NextSibling {
 		if c.Type != xhtml.ElementNode || !strings.EqualFold(c.Data, "li") {
 			continue
 		}
 		// Use inline content if possible, fall back to plain text.
-		inline := helpBuildInline(c, baseURL)
+		inline := helpBuildInline(c, baseURL, onLink)
 		if len(inline) > 0 {
 			// ListSegment items must be a single segment; use ParagraphSegment.
 			items = append(items, &widget.ParagraphSegment{Texts: inline})
@@ -246,7 +252,7 @@ func helpCollectListItems(ul *xhtml.Node, baseURL string) []widget.RichTextSegme
 }
 
 // helpWalkDL renders <dl>/<dt>/<dd>.
-func helpWalkDL(out *[]widget.RichTextSegment, dl *xhtml.Node, baseURL string) {
+func helpWalkDL(out *[]widget.RichTextSegment, dl *xhtml.Node, baseURL string, onLink func(string)) {
 	for c := dl.FirstChild; c != nil; c = c.NextSibling {
 		if c.Type != xhtml.ElementNode {
 			continue
@@ -261,7 +267,7 @@ func helpWalkDL(out *[]widget.RichTextSegment, dl *xhtml.Node, baseURL string) {
 				})
 			}
 		case "dd":
-			inline := helpBuildInline(c, baseURL)
+			inline := helpBuildInline(c, baseURL, onLink)
 			if len(inline) > 0 {
 				// Indent first text segment.
 				if ts, ok := inline[0].(*widget.TextSegment); ok {
@@ -352,13 +358,13 @@ func helpCollectTableRows(n *xhtml.Node, rows *[][]string) {
 }
 
 // helpBuildInline builds a slice of inline RichTextSegments from node children.
-func helpBuildInline(n *xhtml.Node, baseURL string) []widget.RichTextSegment {
+func helpBuildInline(n *xhtml.Node, baseURL string, onLink func(string)) []widget.RichTextSegment {
 	var out []widget.RichTextSegment
-	helpWalkInline(&out, n, baseURL, widget.RichTextStyleInline)
+	helpWalkInline(&out, n, baseURL, widget.RichTextStyleInline, onLink)
 	return out
 }
 
-func helpWalkInline(out *[]widget.RichTextSegment, n *xhtml.Node, baseURL string, style widget.RichTextStyle) {
+func helpWalkInline(out *[]widget.RichTextSegment, n *xhtml.Node, baseURL string, style widget.RichTextStyle, onLink func(string)) {
 	if n == nil {
 		return
 	}
@@ -392,16 +398,24 @@ func helpWalkInline(out *[]widget.RichTextSegment, n *xhtml.Node, baseURL string
 			if text == "" {
 				text = href
 			}
-			// Only create hyperlinks for non-anchor absolute/relative URLs.
-			if href != "" && !strings.HasPrefix(href, "#") {
+			if href != "" {
 				full := helpResolveURL(baseURL, href)
-				if u, err := url.Parse(full); err == nil && u.Host != "" {
-					*out = append(*out, &widget.HyperlinkSegment{
+				if u, err := url.Parse(full); err == nil {
+					seg := &widget.HyperlinkSegment{
 						Alignment: fyne.TextAlignLeading,
 						Text:      text,
 						URL:       u,
-					})
-					return
+					}
+					if onLink != nil {
+						resolved := full
+						seg.OnTapped = func() { onLink(resolved) }
+						*out = append(*out, seg)
+						return
+					}
+					if u.Host != "" || strings.EqualFold(u.Scheme, "http") || strings.EqualFold(u.Scheme, "https") {
+						*out = append(*out, seg)
+						return
+					}
 				}
 			}
 			if text != "" {
@@ -413,7 +427,7 @@ func helpWalkInline(out *[]widget.RichTextSegment, n *xhtml.Node, baseURL string
 			bold := style
 			bold.TextStyle.Bold = true
 			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				helpWalkInline(out, c, baseURL, bold)
+				helpWalkInline(out, c, baseURL, bold, onLink)
 			}
 			return
 
@@ -421,7 +435,7 @@ func helpWalkInline(out *[]widget.RichTextSegment, n *xhtml.Node, baseURL string
 			italic := style
 			italic.TextStyle.Italic = true
 			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				helpWalkInline(out, c, baseURL, italic)
+				helpWalkInline(out, c, baseURL, italic, onLink)
 			}
 			return
 
@@ -434,7 +448,7 @@ func helpWalkInline(out *[]widget.RichTextSegment, n *xhtml.Node, baseURL string
 		}
 		// Default: recurse with the same style.
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			helpWalkInline(out, c, baseURL, style)
+			helpWalkInline(out, c, baseURL, style, onLink)
 		}
 	}
 }

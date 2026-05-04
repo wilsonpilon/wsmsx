@@ -133,7 +133,9 @@ type editorTab struct {
 	dirty     bool
 	cursorRow int
 	cursorCol int
+	topX      float32
 	topLine   int
+	topOffset float32
 
 	blockBegin    int
 	blockEnd      int
@@ -172,7 +174,9 @@ type editorUI struct {
 	inEditor        bool
 	cursorRow       int
 	cursorCol       int
+	topX            float32
 	topLine         int
+	topOffset       float32
 	prefixTimeoutID uint64
 	prefixExpired   uint32
 
@@ -341,7 +345,9 @@ func (e *editorUI) bindActiveTab(tab *editorTab) {
 	e.dirty = tab.dirty
 	e.cursorRow = tab.cursorRow
 	e.cursorCol = tab.cursorCol
+	e.topX = tab.topX
 	e.topLine = tab.topLine
+	e.topOffset = tab.topOffset
 	e.saveTokenized = tab.tokenizedSave
 	e.syncTokenizedMenu()
 	e.updateBlockIndicator()
@@ -349,6 +355,9 @@ func (e *editorUI) bindActiveTab(tab *editorTab) {
 	e.updateTitle()
 	e.syncLineNumbers()
 	e.syncSyntaxOverlay()
+	if e.ruler != nil {
+		e.ruler.SetViewportX(e.topX)
+	}
 }
 
 func (e *editorUI) syncTokenizedMenu() {
@@ -457,7 +466,7 @@ func (e *editorUI) bindTabEntry(tab *editorTab) {
 	}
 	tab.entry.onViewportOffset = func(x, offsetY float32) {
 		if e.activeTab == tab && e.inEditor {
-			e.applyViewportOffset(offsetY)
+			e.applyViewportOffset(x, offsetY)
 		}
 	}
 	tab.entry.onSecondaryTapped = func(row, col int) {}
@@ -889,10 +898,13 @@ func (e *editorUI) showEditorForType(path string, initialType *newFileType) {
 	e.cursorRow = 0
 	e.cursorCol = 0
 	e.topLine = 0
+	e.topX = 0
+	e.topOffset = 0
 	e.entry.CursorRow = 0
 	e.entry.CursorColumn = 0
 	if e.ruler != nil {
 		e.ruler.UpdateCursor(0, 0)
+		e.ruler.SetViewportX(0)
 	}
 	e.syncLineNumbers()
 	if e.activeTab != nil {
@@ -901,7 +913,9 @@ func (e *editorUI) showEditorForType(path string, initialType *newFileType) {
 		e.activeTab.dirty = false
 		e.activeTab.cursorRow = 0
 		e.activeTab.cursorCol = 0
+		e.activeTab.topX = 0
 		e.activeTab.topLine = 0
+		e.activeTab.topOffset = 0
 		e.refreshTabTitle(e.activeTab)
 		e.recordProgramSnapshot(e.activeTab, nil)
 	}
@@ -1611,6 +1625,10 @@ func (e *editorUI) makeEditorMenu() *fyne.MainMenu {
 	runMakeDiskItem := fyne.NewMenuItem("Make a Disk [NI]", func() { e.cmdNotImplemented("Make a Disk") })
 	runBadigItem := fyne.NewMenuItem("Transpile on BADIG [NI]", func() { e.cmdNotImplemented("Transpile on BADIG") })
 	runMSXBas2RomItem := fyne.NewMenuItem("Compile on msxbas2rom [NI]", func() { e.cmdNotImplemented("Compile on msxbas2rom") })
+	makeDSKItem := fyne.NewMenuItem("Make DSK...", func() { e.cmdMakeDSKDialog() })
+	extractDSKItem := fyne.NewMenuItem("Extract DSK...", func() { e.cmdExtractDSKDialog() })
+	dskMenuItem := fyne.NewMenuItem("DSK", nil)
+	dskMenuItem.ChildMenu = fyne.NewMenu("", makeDSKItem, extractDSKItem)
 	runMenu := fyne.NewMenu("Run",
 		runOpenMSXItem,
 		runMakeDiskItem,
@@ -1627,6 +1645,7 @@ func (e *editorUI) makeEditorMenu() *fyne.MainMenu {
 		fyne.NewMenuItem("Run BASIC Dignified", func() { e.cmdLaunchBasicDignified() }),
 		fyne.NewMenuItem("Run MSX Encoding", func() { e.cmdLaunchMSXEncoding() }),
 		fyne.NewMenuItemSeparator(),
+		dskMenuItem,
 		fyne.NewMenuItem("Configure...", func() { e.cmdConfigure() }),
 		fyne.NewMenuItem("Keybinds...", func() { e.cmdKeybinds() }),
 	)
@@ -2352,7 +2371,11 @@ func findProjectDocPath(fileName string) (string, error) {
 }
 
 func (e *editorUI) cmdNotImplemented(name string) {
-	dialog.ShowInformation(name, name+" will be implemented in a future update.", e.window)
+	e.cmdNotImplementedMessage(name, name+" will be implemented in a future update.")
+}
+
+func (e *editorUI) cmdNotImplementedMessage(title, message string) {
+	dialog.ShowInformation(title, message, e.window)
 }
 
 func (e *editorUI) cmdFileCopy() {
@@ -2706,15 +2729,7 @@ func (e *editorUI) syncLineNumbers() {
 		visLines = 1
 	}
 
-	// Keep cursor visible inside viewport bounds, but preserve real topLine
-	// that came from the Entry internal scroll offset.
 	topLine := e.topLine
-	if e.cursorRow < topLine {
-		topLine = e.cursorRow
-	}
-	if e.cursorRow >= topLine+visLines {
-		topLine = e.cursorRow - visLines + 1
-	}
 
 	maxTop := lineCount - visLines
 	if maxTop < 0 {
@@ -2729,9 +2744,11 @@ func (e *editorUI) syncLineNumbers() {
 
 	e.topLine = topLine
 	if e.activeTab != nil {
+		e.activeTab.topX = e.topX
 		e.activeTab.topLine = topLine
+		e.activeTab.topOffset = e.topOffset
 	}
-	e.lineNums.Update(lineCount, topLine, e.cursorRow)
+	e.lineNums.UpdateWithOffset(lineCount, topLine, e.topOffset, e.cursorRow)
 	e.syncSyntaxOverlay()
 }
 
@@ -2739,15 +2756,16 @@ func (e *editorUI) syncSyntaxOverlay() {
 	if e.activeTab == nil || e.activeTab.syntaxOverlay == nil {
 		return
 	}
-	e.activeTab.syntaxOverlay.SetTopLine(e.topLine)
+	e.activeTab.syntaxOverlay.SetViewport(e.topLine, e.topOffset, e.topX)
 }
 
 func (e *editorUI) lineHeightPx() float32 {
-	charH := fyne.MeasureText("M", theme.TextSize(), fyne.TextStyle{Monospace: true}).Height
+	style := fyne.TextStyle{Monospace: true}
+	charH := fyne.MeasureText("M", theme.TextSize(), style).Height
 	if charH < 1 {
 		charH = 16
 	}
-	return charH + 2
+	return charH
 }
 
 func (e *editorUI) visibleLineCount() int {
@@ -2766,7 +2784,10 @@ func (e *editorUI) visibleLineCount() int {
 	return vis
 }
 
-func (e *editorUI) applyViewportOffset(offsetY float32) {
+func (e *editorUI) applyViewportOffset(offsetX, offsetY float32) {
+	if offsetX < 0 {
+		offsetX = 0
+	}
 	if offsetY < 0 {
 		offsetY = 0
 	}
@@ -2774,11 +2795,32 @@ func (e *editorUI) applyViewportOffset(offsetY float32) {
 	if lineH <= 0 {
 		return
 	}
-	e.topLine = int(offsetY / lineH)
+	e.topX = offsetX
+	e.topLine, e.topOffset = viewportLineAndOffset(offsetY, lineH)
 	if e.activeTab != nil {
+		e.activeTab.topX = e.topX
 		e.activeTab.topLine = e.topLine
+		e.activeTab.topOffset = e.topOffset
+	}
+	if e.ruler != nil {
+		e.ruler.SetViewportX(e.topX)
 	}
 	e.syncLineNumbers()
+}
+
+func viewportLineAndOffset(offsetY, lineH float32) (int, float32) {
+	if offsetY < 0 {
+		offsetY = 0
+	}
+	if lineH <= 0 {
+		return 0, 0
+	}
+	topLine := int(offsetY / lineH)
+	off := offsetY - (float32(topLine) * lineH)
+	if off < 0 {
+		off = 0
+	}
+	return topLine, off
 }
 
 func (e *editorUI) updateTitle() {
